@@ -9,6 +9,7 @@ from __future__ import print_function
 import unittest
 
 from src.models.block import Block
+from src.models.instruction import Instruction
 
 
 class TestBlock(unittest.TestCase):
@@ -29,6 +30,19 @@ class TestBlock(unittest.TestCase):
       self.assertEqual(self.block1.successors, [self.block2, self.block3])
       self.assertEqual(self.block2.predecessors, [self.block1])
       self.assertEqual(self.block3.predecessors, [self.block1])
+
+   def test_add_instruction(self):
+      instr1 = Instruction(referenced=["varA"], defined=["varB"], lineno=1)
+      instr2 = Instruction(referenced=["varA", "varB"], defined=["varC"], lineno=2)
+
+      self.block1.add_instruction(instr1)
+      self.assertEqual(self.block1.referenced, set(["varA"]))
+      self.assertEqual(self.block1.defined, set(["varB"]))
+
+      self.block1.add_instruction(instr2)
+      self.assertEqual(self.block1.referenced, set(["varA", "varB"]))
+      self.assertEqual(self.block1.defined, set(["varB", "varC"]))
+
 
 if __name__ == '__main__':
    unittest.main()

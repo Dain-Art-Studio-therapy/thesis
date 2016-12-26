@@ -8,6 +8,8 @@
 from __future__ import print_function
 import ast
 
+from src.models.block import Block, BlockList
+
 
 # Visitor to generate CFG.
 class CFGGenerator(ast.NodeVisitor):
@@ -20,15 +22,23 @@ class CFGGenerator(ast.NodeVisitor):
 
    def __init__(self, debug):
       self.debug = debug
-      self.temp = None
+      self._init_variables()
+
+   def _init_variables(self):
+      self.block_list = BlockList()
+      self.current_block = None
 
    # Generates CFG.
    def generate(self, node):
-      # TODO(ngarg): Initialize variables.
+      self._init_variables()
       self.visit(node)
-      # TODO(ngarg): Return variables.
-      print("returned: ", self.temp)
-      return "TEMP"
+      return self.block_list
+
+   # Module(stmt* body)
+   def visit_Module(self, node):
+      self.current_block = Block()
+      self.block_list.add(self.current_block)
+      self.generic_visit(node)
 
    def visit_Str(self, node):
       self.temp = "testing"
