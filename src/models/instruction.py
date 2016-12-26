@@ -20,10 +20,10 @@ class Instruction(object):
       Line number.
    """
 
-   def __init__(self, lineno, referenced=None, defined=None):
+   def __init__(self, lineno):
       self.lineno = lineno
-      self.referenced = set(referenced) if referenced else set()
-      self.defined = set(defined) if defined else set()
+      self.referenced = set()
+      self.defined = set()
 
    def __str__(self):
       string = '#%d | ' %self.lineno

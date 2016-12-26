@@ -12,6 +12,12 @@ from src.models.block import Block, BlockList
 from src.models.instruction import Instruction
 
 
+# Type of the variable.
+class TypeVariable(object):
+   LOAD = 1
+   STORE = 2
+
+
 # Visitor to generate CFG.
 class CFGGenerator(ast.NodeVisitor):
    """
@@ -51,6 +57,7 @@ class CFGGenerator(ast.NodeVisitor):
          return self.visit(value)
 
    # input: Module(stmt* body)
+   # output: None
    def visit_Module(self, node):
       self.current_block = Block()
       self.block_list.add(self.current_block)
@@ -99,13 +106,11 @@ class CFGGenerator(ast.NodeVisitor):
    #    print('visit_Delete')
    #    self.generic_visit(node)
 
-   # input: Assign(expr* targets, expr value)
-   # ouput: None
-   def visit_Assign(self, node):
-      targets = self._visit_item(node.targets)
-      values = self._visit_item(node.value)
-      instr = Instruction(node.lineno, referenced=values, defined=targets)
-      self.current_block.add_instruction(instr)
+   # # Assign(expr* targets, expr value)
+   # def visit_Assign(self, node):
+   #    # TODO(ngarg): Implement.
+   #    print('visit_Assign')
+   #    self.generic_visit(node)
 
    # # AugAssign(expr target, operator op, expr value)
    # def visit_AugAssign(self, node):
@@ -113,12 +118,11 @@ class CFGGenerator(ast.NodeVisitor):
    #    print('visit_AugAssign')
    #    self.generic_visit(node)
 
-   # input: Print(expr? dest, expr* values, bool nl)
-   # output: None
-   def visit_Print(self, node):
-      values = self._visit_item(node.values)
-      instr = Instruction(node.lineno, referenced=values)
-      self.current_block.add_instruction(instr)
+   # # Print(expr? dest, expr* values, bool nl)
+   # def visit_Print(self, node):
+   #    # TODO(ngarg): Implement.
+   #    print('visit_Print')
+   #    self.generic_visit(node)
 
    # # For(expr target, expr iter, stmt* body, stmt* orelse)
    # def visit_For(self, node):
@@ -280,9 +284,9 @@ class CFGGenerator(ast.NodeVisitor):
    #             expr? starargs, expr? kwargs)
    # ouput: None
    def visit_Call(self, node):
-      args = self._visit_item(node.args)
-      instr = Instruction(node.lineno, referenced=args)
-      self.current_block.add_instruction(instr)
+      for key, value in vars(node).items():
+         if key != 'func':
+            self._visit_item(value)
 
    # # Repr(expr value)
    # def visit_Repr(self, node):
@@ -318,7 +322,11 @@ class CFGGenerator(ast.NodeVisitor):
    # input: Name(identifier id, expr_context ctx)
    # output: str var
    def visit_Name(self, node):
-      return node.id
+      action = self._visit_item(node.ctx)
+      if action == TypeVariable.LOAD:
+         self.current_block.add_reference(node.lineno, variable=node.id)
+      if action == TypeVariable.STORE:
+         self.current_block.add_definition(node.lineno, variable=node.id)
 
    # # List(expr* elts, expr_context ctx)
    # def visit_List(self, node):
@@ -326,23 +334,21 @@ class CFGGenerator(ast.NodeVisitor):
    #    print('visit_List')
    #    self.generic_visit(node)
 
-   # input: Tuple(expr* elts, expr_context ctx)
-   # output: list(str) vars
-   def visit_Tuple(self, node):
-      variables = []
-      for item in node.elts:
-         value = self.visit(item)
-         if value:
-            variables.append(value)
-      return variables
+   # # Tuple(expr* elts, expr_context ctx)
+   # def visit_Tuple(self, node):
+   #    # TODO(ngarg): Implement.
+   #    print('visit_Tuple')
+   #    self.generic_visit(node)
 
    # input: Load()
+   # output: TypeVariable
    def visit_Load(self, node):
-      pass
+      return TypeVariable.LOAD
 
    # input: Store()
+   # output: TypeVariable
    def visit_Store(self, node):
-      pass
+      return TypeVariable.STORE
 
    # # ???
    # def visit_Del(self, node):

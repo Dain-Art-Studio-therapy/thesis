@@ -59,7 +59,7 @@ class Block(object):
    def __init__(self):
       self.successors = []
       self.predecessors = []
-      self.instructions = []
+      self.instructions = {}
       self.referenced = set([])
       self.defined = set([])
       self.label = self._get_label()
@@ -72,7 +72,7 @@ class Block(object):
          string += 'DEF(%s)' %(', '.join(self.defined))
       string += '\n'
 
-      for instruction in self.instructions:
+      for lineno, instruction in self.instructions.items():
          string += '\t%s\n' %str(instruction)
       return string
 
@@ -86,13 +86,25 @@ class Block(object):
       Block._count_label += 1
       return "L%d" %Block._count_label
 
+   # Gets an instruction from the block.
+   def _get_instruction(self, lineno):
+      if lineno not in self.instructions:
+         self.instructions[lineno] = Instruction(lineno)
+      return self.instructions[lineno]
+
+   # Adds variable reference at line number.
+   def add_reference(self, lineno, variable):
+      instruction = self._get_instruction(lineno)
+      instruction.referenced.add(variable)
+      self.referenced.add(variable)
+
+   # Adds variable defined at line number.
+   def add_definition(self, lineno, variable):
+      instruction = self._get_instruction(lineno)
+      instruction.defined.add(variable)
+      self.defined.add(variable)
+
    # Adds a block as a successor and this block as its predecessor.
    def add_successor(self, block):
       self.successors.append(block)
       block.predecessors.append(self)
-
-   # Adds an instruction to the block.
-   def add_instruction(self, instruction):
-      self.instructions.append(instruction)
-      self.referenced.update(instruction.referenced)
-      self.defined.update(instruction.defined)
