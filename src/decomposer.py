@@ -10,7 +10,7 @@ import argparse
 import ast
 import sys
 
-from generatecfg import CFGGenerator
+from src.generatecfg import CFGGenerator
 
 
 # Prints AST node recursively.
@@ -54,11 +54,11 @@ def process_args():
 
 
 # Commands to run program:
-#   python decomposer.py ../codesample/python2/simple_str.py
-#   python3 decomposer.py ../codesample/python3/simple_str.py
+#   python -m src.decomposer codesample/python2/simple_str.py
+#   python3 -m src.decomposer codesample/python3/simple_str.py
 #
-#   python decomposer.py ../codesample/python2/simple_loop.py
-#   python3 decomposer.py ../codesample/python3/simple_loop.py
+#   python -m src.decomposer codesample/python2/simple_loop.py
+#   python3 -m src.decomposer codesample/python3/simple_loop.py
 #
 def main():
    args = process_args()

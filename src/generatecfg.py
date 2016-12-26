@@ -18,16 +18,15 @@ class CFGGenerator(ast.NodeVisitor):
       Whether to print debug messages.
    """
 
-   temp = None
-
    def __init__(self, debug):
       self.debug = debug
+      self.temp = None
 
    # Generates CFG.
    def generate(self, node):
-      # TODO: Initialize variables.
+      # TODO(ngarg): Initialize variables.
       self.visit(node)
-      # TODO: Return variables.
+      # TODO(ngarg): Return variables.
       print("returned: ", self.temp)
       return "TEMP"
 
