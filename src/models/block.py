@@ -60,12 +60,18 @@ class Block(object):
       self.successors = []
       self.predecessors = []
       self.instructions = []
-      self.referenced = set()
-      self.defined = set()
+      self.referenced = set([])
+      self.defined = set([])
       self.label = self._get_label()
 
    def __str__(self):
-      string = '%s\n' %str(self.label)
+      string = '%s | ' %str(self.label)
+      if self.referenced:
+         string += 'REF(%s) ' %(', '.join(self.referenced))
+      if self.defined:
+         string += 'DEF(%s)' %(', '.join(self.defined))
+      string += '\n'
+
       for instruction in self.instructions:
          string += '\t%s\n' %str(instruction)
       return string

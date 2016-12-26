@@ -20,6 +20,15 @@ class Instruction(object):
       Line number.
    """
 
-   def __init__(self, referenced, defined, lineno):
-      self.referenced = set(referenced)
-      self.defined = set(defined)
+   def __init__(self, lineno, referenced=None, defined=None):
+      self.lineno = lineno
+      self.referenced = set(referenced) if referenced else set()
+      self.defined = set(defined) if defined else set()
+
+   def __str__(self):
+      string = '#%d | ' %self.lineno
+      if self.referenced:
+         string += 'REF(%s) ' %(', '.join(self.referenced))
+      if self.defined:
+         string += 'DEF(%s)' %(', '.join(self.defined))
+      return string
