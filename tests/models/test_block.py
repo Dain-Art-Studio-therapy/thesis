@@ -32,16 +32,20 @@ class TestBlock(unittest.TestCase):
       self.assertEqual(self.block3.predecessors, [self.block1])
 
    def test_add_instruction(self):
-      instr1 = Instruction(referenced=["varA"], defined=["varB"], lineno=1)
-      instr2 = Instruction(referenced=["varA", "varB"], defined=["varC"], lineno=2)
-
-      self.block1.add_instruction(instr1)
+      self.block1.add_reference(lineno=1, variable="varA")
+      self.block1.add_definition(lineno=1, variable="varB")
       self.assertEqual(self.block1.referenced, set(["varA"]))
       self.assertEqual(self.block1.defined, set(["varB"]))
+      self.assertEqual(len(self.block1.instructions), 1)
+      self.assertEqual(set(self.block1.instructions.keys()), set([1]))
 
-      self.block1.add_instruction(instr2)
+      self.block1.add_reference(lineno=2, variable="varA")
+      self.block1.add_reference(lineno=2, variable="varB")
+      self.block1.add_definition(lineno=2, variable="varC")
       self.assertEqual(self.block1.referenced, set(["varA", "varB"]))
       self.assertEqual(self.block1.defined, set(["varB", "varC"]))
+      self.assertEqual(len(self.block1.instructions), 2)
+      self.assertEqual(set(self.block1.instructions.keys()), set([1, 2]))
 
 
 if __name__ == '__main__':

@@ -84,7 +84,7 @@ class Block(object):
    # Returns next available label.
    def _get_label(self):
       Block._count_label += 1
-      return "L%d" %Block._count_label
+      return 'L%d' %Block._count_label
 
    # Gets an instruction from the block.
    def _get_instruction(self, lineno):

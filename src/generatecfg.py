@@ -1,7 +1,7 @@
 # File name: generatecfg.py
 # Author: Nupur Garg
 # Date created: 12/25/2016
-# Date last modified: 12/25/2016
+# Date last modified: 12/26/2016
 # Python Version: 3.5
 
 
@@ -10,6 +10,10 @@ import ast
 
 from src.models.block import Block, BlockList
 from src.models.instruction import Instruction
+
+
+# TODO(ngarg): What should I do with the initial block?
+#              How should I deal with combination of scripting vs functional?
 
 
 # Type of the variable.
@@ -81,12 +85,13 @@ class CFGGenerator(ast.NodeVisitor):
    #    print('visit_Suite')
    #    self.generic_visit(self, node)
 
-   # # FunctionDef(identifier name, arguments args,
-   # #             stmt* body, expr* decorator_list)
-   # def visit_FunctionDef(self, node):
-   #    # TODO(ngarg): Implement.
-   #    print('visit_FunctionDef')
-   #    self.generic_visit(node)
+   # input: FunctionDef(identifier name, arguments args,
+   #                    stmt* body, expr* decorator_list)
+   # output: None
+   def visit_FunctionDef(self, node):
+      self.current_block = Block()
+      self.block_list.add(self.current_block)
+      self.generic_visit(node)
 
    # # ClassDef(identifier name, expr* bases, stmt* body, expr* decorator_list)
    # def visit_ClassDef(self, node):
@@ -118,11 +123,12 @@ class CFGGenerator(ast.NodeVisitor):
    #    print('visit_AugAssign')
    #    self.generic_visit(node)
 
-   # # Print(expr? dest, expr* values, bool nl)
-   # def visit_Print(self, node):
-   #    # TODO(ngarg): Implement.
-   #    print('visit_Print')
-   #    self.generic_visit(node)
+   # input: Print(expr? dest, expr* values, bool nl)
+   # output: None
+   def visit_Print(self, node):
+      # Add print to referenced variables for Python 2 & 3 compatability.
+      self.current_block.add_reference(node.lineno, variable='print')
+      self.generic_visit(node)
 
    # # For(expr target, expr iter, stmt* body, stmt* orelse)
    # def visit_For(self, node):
@@ -280,13 +286,13 @@ class CFGGenerator(ast.NodeVisitor):
    #    print('visit_Compare')
    #    self.generic_visit(node)
 
-   # input: Call(expr func, expr* args, keyword* keywords,
-   #             expr? starargs, expr? kwargs)
-   # ouput: None
-   def visit_Call(self, node):
-      for key, value in vars(node).items():
-         if key != 'func':
-            self._visit_item(value)
+   # # input: Call(expr func, expr* args, keyword* keywords,
+   # #             expr? starargs, expr? kwargs)
+   # # ouput: None
+   # def visit_Call(self, node):
+   #    for key, value in vars(node).items():
+   #       if key != 'func':
+   #          self._visit_item(value)
 
    # # Repr(expr value)
    # def visit_Repr(self, node):
