@@ -1,0 +1,31 @@
+import data
+import math
+
+def scale_vector(vector, scalar):
+   vector2 = data.Vector(vector.x * scalar, vector.y * scalar, vector.z * scalar)
+   return vector2
+
+def dot_vector(vector1, vector2):
+   return vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z
+
+def length_vector(vector):
+   return math.sqrt(vector.x**2 + vector.y**2 + vector.z**2)
+
+def normalize_vector(vector):
+   length = length_vector(vector)
+   return scale_vector(vector, 1.0/length)
+
+def difference_point(point1, point2):
+   vector1 = data.Vector(point1.x - point2.x, point1.y - point2.y, point1.z - point2.z)
+   return vector1
+
+def difference_vector(vector1, vector2):
+   vector3 = data.Vector(vector1.x - vector2.x, vector1.y - vector2.y, vector1.z - vector2.z)
+   return vector3
+
+def translate_point(point, vector):
+   point2 = data.Point(point.x + vector.x, point.y + vector.y, point.z + vector.z)
+   return point2
+
+def vector_from_to(from_point, to_point):
+   return difference_point(to_point, from_point)

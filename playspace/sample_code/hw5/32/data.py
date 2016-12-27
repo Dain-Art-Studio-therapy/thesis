@@ -1,0 +1,84 @@
+#data
+
+from utility import *
+
+class Point:
+   def __init__(self, x, y, z):
+      self.x = x
+      self.y = y
+      self.z = z
+
+   def __eq__(self, other):
+      return (epsilon_equal(self.x, other.x) and
+         epsilon_equal(self.y, other.y) and
+         epsilon_equal(self.z, other.z))
+
+class Vector:
+   def __init__(self, x, y, z):
+      self.x = x
+      self.y = y
+      self.z = z
+
+   def __eq__(self, other):
+      return (epsilon_equal(self.x, other.x) and
+         epsilon_equal(self.y, other.y) and
+         epsilon_equal(self.z, other.z))
+
+class Ray:
+   def __init__(self, pt, dir):
+      self.pt = pt
+      self.dir = dir
+
+   def __eq__(self, other):
+      pt_eq = (self.pt == other.pt)
+      dir_eq = (self.dir == other.dir)
+      return (pt_eq and dir_eq)
+
+class Sphere:
+   def __init__(self, center, radius, color, finish):
+      self.center = center
+      self.radius = radius
+      self.color = color
+      self.finish = finish
+
+   def __eq__(self, other):
+      center_eq = (self.center == other.center)
+      radius_eq = epsilon_equal(self.radius, other.radius)
+      color_eq = (self.color == other.color)
+      finish_eq = (self.finish == other.finish)
+      return (center_eq and radius_eq)
+
+class Color:
+   def __init__(self, r, g, b):
+      self.r = r
+      self.g = g
+      self.b = b
+
+   def __eq__(self, other):
+      return (epsilon_equal(self.r, other.r) and
+         epsilon_equal(self.g, other.g) and
+         epsilon_equal(self.b, other.b))
+
+class Finish:
+   def __init__(self, ambient, diffuse, specular, roughness):
+      self.ambient = ambient
+      self.diffuse = diffuse
+      self.specular = specular
+      self.roughness = roughness
+
+   def __eq__(self, other):
+      ambient_eq = epsilon_equal(self.ambient, other.ambient)
+      diffuse_eq = epsilon_equal(self.diffuse, other.diffuse)
+      specular_eq = epsilon_equal(self.specular, other.specular)
+      roughness_eq = epsilon_equal(self.roughness, other.roughness)
+      return ambient_eq and diffuse_eq and specular_eq and roughness_eq
+
+class Light:
+   def __init__(self, pt, color):
+      self.pt = pt
+      self.color = color
+
+   def __eq__(self, other):
+      pt_eq = (self.pt == other.pt)
+      color_eq = (self.color == other.color)
+      return pt_eq and color_eq
