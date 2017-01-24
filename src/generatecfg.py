@@ -148,16 +148,62 @@ class CFGGenerator(ast.NodeVisitor):
 
         self.current_block = after_block
 
-    # # input: While(expr test, stmt* body, stmt* orelse)
-    # # output: Block
-    # def visit_While(self, node):
-    #     print('visit_While')
-    #     self.generic_visit(node)
+    # input: While(expr test, stmt* body, stmt* orelse)
+    # output: Block
+    def visit_While(self, node):
+        start_block = self.current_block
+        guard_block = Block()
+        start_body_block = Block()
+        after_block = Block()
 
-    # # If(expr test, stmt* body, stmt* orelse)
-    # def visit_If(self, node):
-    #     print('visit_If')
-    #     self.generic_visit(node)
+        # Add successors/predcessors.
+        start_block.add_successor(guard_block)
+        guard_block.add_successor(start_body_block)
+        guard_block.add_successor(after_block)
+
+        # Add test to current block.
+        self.current_block = guard_block
+        self._visit_item(node.test)
+
+        # Add body to body block.
+        self.current_block = start_body_block
+        self._visit_item(node.body)
+        end_body_block = self.current_block
+        end_body_block.add_successor(guard_block)
+
+        # TODO(ngarg): Figure out orelse in For.
+        # self.generic_visit(node)
+
+        self.current_block = after_block
+
+    # input: If(expr test, stmt* body, stmt* orelse)
+    # output: None
+    def visit_If(self, node):
+        start_block = self.current_block
+        start_if_block = Block()
+        start_else_block = Block()
+        after_block = Block()
+
+        # Add successors/predecessors.
+        start_block.add_successor(start_if_block)
+        start_block.add_successor(start_else_block)
+
+        # Add test to current block.
+        self._visit_item(node.test)
+
+        # Add body to if block.
+        self.current_block = start_if_block
+        self._visit_item(node.body)
+        end_if_block = self.current_block
+        end_if_block.add_successor(after_block)
+
+        # Add orelse to else block.
+        self.current_block = start_else_block
+        self._visit_item(node.orelse)
+        end_if_block = self.current_block
+        end_if_block.add_successor(after_block)
+
+        self.current_block = after_block
 
     # # With(expr context_expr, expr? optional_vars, stmt* body)
     # def visit_With(self, node):

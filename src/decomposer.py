@@ -61,6 +61,9 @@ def process_args():
 #
 #    python -m src.decomposer codesample/python2/nested_for_loop.py
 #
+#    python -m src.decomposer codesample/python2/conditional_with_elif.py
+#    python3 -m src.decomposer codesample/python3/conditional_with_elif.py
+#
 #    python -m src.decomposer codesample/python2/hw4_cast_1.py --debug
 #
 def main():

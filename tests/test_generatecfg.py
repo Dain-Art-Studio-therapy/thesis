@@ -50,6 +50,58 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertEqual(block.instructions[5].referenced, set(['print', 'string1']))
         self.assertEqual(block.instructions[5].defined, set())
 
+
+    def test_simple_conditional(self):
+        source = ('def funcA():\n'
+                  '    x = int(input("enter test score:"))\n'
+                  '    if x < 70:\n'
+                  '        print("You need to retake the class.")\n'
+                  '    elif x < 85:\n'
+                  '        print("You have room for improvement.")\n'
+                  '    else:\n'
+                  '        print("Great job!")\n')
+        cfg = self._generate_cfg(source)
+        func_block = cfg.block_list[0]
+
+        self.assertEqual(func_block.label, 'funcA')
+        self.assertEqual(func_block.instructions[2].defined, set(['x']))
+        self.assertEqual(func_block.instructions[2].referenced, set(['int', 'input']))
+        self.assertEqual(func_block.instructions[3].referenced, set(['x']))
+        self.assertEqual(list(func_block.successors), ['L1', 'L2'])
+
+        if_block_1 = func_block.successors['L1']
+        self.assertEqual(if_block_1.instructions[4].referenced, set(['print']))
+        self.assertEqual(if_block_1.instructions[4].defined, set())
+        self.assertEqual(list(if_block_1.predecessors), ['funcA'])
+        self.assertEqual(list(if_block_1.successors), ['L3'])
+
+        else_block_1 = func_block.successors['L2']
+        self.assertEqual(else_block_1.instructions[5].referenced, set(['x']))
+        self.assertEqual(else_block_1.instructions[5].defined, set())
+        self.assertEqual(list(else_block_1.predecessors), ['funcA'])
+        self.assertEqual(list(else_block_1.successors), ['L4', 'L5'])
+
+        if_block_2 = else_block_1.successors['L4']
+        self.assertEqual(if_block_2.instructions[6].referenced, set(['print']))
+        self.assertEqual(if_block_2.instructions[6].defined, set())
+        self.assertEqual(list(if_block_2.predecessors), ['L2'])
+        self.assertEqual(list(if_block_2.successors), ['L6'])
+
+        else_block_2 = else_block_1.successors['L5']
+        self.assertEqual(else_block_2.instructions[8].referenced, set(['print']))
+        self.assertEqual(else_block_2.instructions[8].defined, set())
+        self.assertEqual(list(else_block_2.predecessors), ['L2'])
+        self.assertEqual(list(else_block_2.successors), ['L6'])
+
+        exit_block_2 = if_block_2.successors['L6']
+        self.assertFalse(exit_block_2.instructions)
+        self.assertEqual(list(exit_block_2.predecessors), ['L4', 'L5'])
+        self.assertEqual(list(exit_block_2.successors), ['L3'])
+
+        exit_block_1 = if_block_1.successors['L3']
+        self.assertFalse(exit_block_1.instructions)
+        self.assertEqual(list(exit_block_1.predecessors), ['L1', 'L6'])
+
     def test_single_for_loop(self):
         source = ('def funcA():\n'
                   '    favs = ["berry", "apple"]\n'
@@ -128,6 +180,34 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertEqual(list(exit_block.predecessors), ['L1'])
         self.assertFalse(exit_block.successors)
 
+    def test_single_while_loop(self):
+        source = ('def funcA():\n'
+                  '    i = 0\n'
+                  '    while i < 5:\n'
+                  '        i += 1')
+        cfg = self._generate_cfg(source)
+        func_block = cfg.block_list[0]
+
+        self.assertEqual(func_block.label, 'funcA')
+        self.assertEqual(func_block.instructions[2].referenced, set())
+        self.assertEqual(func_block.instructions[2].defined, set(['i']))
+        self.assertEqual(list(func_block.successors), ['L1'])
+
+        guard_block = func_block.successors['L1']
+        self.assertEqual(guard_block.instructions[3].referenced, set(['i']))
+        self.assertEqual(guard_block.instructions[3].defined, set())
+        self.assertEqual(list(guard_block.predecessors), ['funcA', 'L2'])
+        self.assertEqual(list(guard_block.successors), ['L2', 'L3'])
+
+        body_block = guard_block.successors['L2']
+        self.assertEqual(body_block.instructions[4].referenced, set())
+        self.assertEqual(body_block.instructions[4].defined, set(['i']))
+        self.assertEqual(list(body_block.predecessors), ['L1'])
+        self.assertEqual(list(body_block.successors), ['L1'])
+
+        exit_block = guard_block.successors['L3']
+        self.assertFalse(exit_block.instructions)
+        self.assertEqual(list(exit_block.predecessors), ['L1'])
 
 if __name__ == '__main__':
     unittest.main()
