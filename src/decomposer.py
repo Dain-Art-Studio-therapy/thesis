@@ -4,11 +4,11 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
 import argparse
 import ast
 import sys
 
+from src.globals import *
 from src.generatecfg import CFGGenerator
 
 

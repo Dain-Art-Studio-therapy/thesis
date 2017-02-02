@@ -4,9 +4,9 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
 import unittest
 
+from src.globals import *
 from src.models.block import Block, FunctionBlock
 from src.models.instruction import Instruction
 
@@ -36,18 +36,18 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(list(self.block3.predecessors), [self.block1.label])
 
     def test_add_instruction(self):
-        self.block1.add_reference(lineno=1, variable="varA")
-        self.block1.add_definition(lineno=1, variable="varB")
-        self.assertEqual(self.block1.referenced, set(["varA"]))
-        self.assertEqual(self.block1.defined, set(["varB"]))
+        self.block1.add_reference(lineno=1, variable='varA')
+        self.block1.add_definition(lineno=1, variable='varB')
+        self.assertEqual(self.block1.instructions[1].referenced, set(['varA']))
+        self.assertEqual(self.block1.instructions[1].defined, set(['varB']))
         self.assertEqual(len(self.block1.instructions), 1)
         self.assertEqual(set(self.block1.instructions.keys()), set([1]))
 
-        self.block1.add_reference(lineno=2, variable="varA")
-        self.block1.add_reference(lineno=2, variable="varB")
-        self.block1.add_definition(lineno=2, variable="varC")
-        self.assertEqual(self.block1.referenced, set(["varA", "varB"]))
-        self.assertEqual(self.block1.defined, set(["varB", "varC"]))
+        self.block1.add_reference(lineno=2, variable='varA')
+        self.block1.add_reference(lineno=2, variable='varB')
+        self.block1.add_definition(lineno=2, variable='varC')
+        self.assertEqual(self.block1.instructions[2].referenced, set(['varA', 'varB']))
+        self.assertEqual(self.block1.instructions[2].defined, set(['varC']))
         self.assertEqual(len(self.block1.instructions), 2)
         self.assertEqual(set(self.block1.instructions.keys()), set([1, 2]))
 
@@ -56,12 +56,12 @@ class TestBlock(unittest.TestCase):
 class TestFunctionBlock(unittest.TestCase):
 
     def setUp(self):
-        self.funcBlock1 = FunctionBlock('func1')
+        self.func_block1 = FunctionBlock('func1')
 
     def test_labels(self):
-        self.assertEqual(self.funcBlock1.label, 'func1')
+        self.assertEqual(self.func_block1.label, 'func1')
         with self.assertRaises(ValueError) as context:
-            self.funcBlock1.label = 'error_label'
+            self.func_block1.label = 'error_label'
 
 if __name__ == '__main__':
     unittest.main()

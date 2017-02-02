@@ -4,9 +4,9 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
 import unittest
 
+from src.globals import *
 from src.models.counter import Counter
 
 

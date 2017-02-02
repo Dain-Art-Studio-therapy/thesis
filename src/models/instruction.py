@@ -4,7 +4,7 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
+from src.globals import *
 
 
 class Instruction(object):

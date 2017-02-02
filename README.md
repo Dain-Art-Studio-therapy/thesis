@@ -21,9 +21,14 @@
 # Extended TODO List
 ### Test Cases to Add
 
-1. List comprehension
+1. Test `BlockList` and `Block.get_instructions()`.
+2. Test `dataflowanalysis.py`.
+3. `test_generatecfg.py`: if without else.
+4. List comprehension
       `[i for i in range]`
       `print i`
+5. Multiple assignments single line
+      `m = n = 1`
 
 ### Features to Add in Type Checker
 
@@ -31,7 +36,9 @@
 2. Loop with else
 3. Redefining scope of variable
       `x = [x for x in [1, 2, 3]]`
+4. Check for unintialized variables.
 
 ### Future Considerations
 
-1. Refactor `generatecfg.py` to not use `current_block`.
+1. Make `BlockInterface` an abstract class using `abc`.
+2. Refactor `generatecfg.py` to not use `current_block`.

@@ -4,10 +4,10 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
 import ast
 import _ast
 
+from src.globals import *
 from src.models.block import BlockList, Block, FunctionBlock
 from src.models.instruction import Instruction
 
@@ -181,12 +181,10 @@ class CFGGenerator(ast.NodeVisitor):
     def visit_If(self, node):
         start_block = self.current_block
         start_if_block = Block()
-        start_else_block = Block()
         after_block = Block()
 
         # Add successors/predecessors.
         start_block.add_successor(start_if_block)
-        start_block.add_successor(start_else_block)
 
         # Add test to current block.
         self._visit_item(node.test)
@@ -198,10 +196,15 @@ class CFGGenerator(ast.NodeVisitor):
         end_if_block.add_successor(after_block)
 
         # Add orelse to else block.
-        self.current_block = start_else_block
-        self._visit_item(node.orelse)
-        end_if_block = self.current_block
-        end_if_block.add_successor(after_block)
+        if node.orelse:
+            start_else_block = Block()
+            start_block.add_successor(start_else_block)
+            self.current_block = start_else_block
+            self._visit_item(node.orelse)
+            end_if_block = self.current_block
+            end_if_block.add_successor(after_block)
+        else:
+            start_block.add_successor(after_block)
 
         self.current_block = after_block
 

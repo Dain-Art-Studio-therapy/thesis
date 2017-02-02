@@ -4,10 +4,10 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
 import unittest
 import ast
 
+from src.globals import *
 from src.models.block import Block
 from src.generatecfg import CFGGenerator
 
@@ -26,12 +26,12 @@ class TestGenerateCFG(unittest.TestCase):
     def test_no_code(self):
         source = ''
         cfg = self._generate_cfg(source)
-        self.assertEqual(len(cfg.block_list), 0)
+        self.assertEqual(cfg.get_num_funcs(), 0)
 
     def test_simple_script(self):
         source = 'string = "hi"'
         cfg = self._generate_cfg(source)
-        self.assertEqual(len(cfg.block_list), 0)
+        self.assertEqual(cfg.get_num_funcs(), 0)
 
     def test_simple_str(self):
         source = ('string0 = "hi"\n'
@@ -40,7 +40,7 @@ class TestGenerateCFG(unittest.TestCase):
                   '    string2, string3 = string1, "hello"\n'
                   '    print(string1)')
         cfg = self._generate_cfg(source)
-        block = cfg.block_list[0]
+        block = cfg.get_func('funcA')
 
         self.assertEqual(block.label, 'funcA')
         self.assertEqual(block.instructions[3].referenced, set())
@@ -61,46 +61,46 @@ class TestGenerateCFG(unittest.TestCase):
                   '    else:\n'
                   '        print("Great job!")\n')
         cfg = self._generate_cfg(source)
-        func_block = cfg.block_list[0]
+        func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
         self.assertEqual(func_block.instructions[2].defined, set(['x']))
         self.assertEqual(func_block.instructions[2].referenced, set(['int', 'input']))
         self.assertEqual(func_block.instructions[3].referenced, set(['x']))
-        self.assertEqual(list(func_block.successors), ['L1', 'L2'])
+        self.assertEqual(list(func_block.successors), ['L1', 'L3'])
 
         if_block_1 = func_block.successors['L1']
         self.assertEqual(if_block_1.instructions[4].referenced, set(['print']))
         self.assertEqual(if_block_1.instructions[4].defined, set())
         self.assertEqual(list(if_block_1.predecessors), ['funcA'])
-        self.assertEqual(list(if_block_1.successors), ['L3'])
+        self.assertEqual(list(if_block_1.successors), ['L2'])
 
-        else_block_1 = func_block.successors['L2']
+        else_block_1 = func_block.successors['L3']
         self.assertEqual(else_block_1.instructions[5].referenced, set(['x']))
         self.assertEqual(else_block_1.instructions[5].defined, set())
         self.assertEqual(list(else_block_1.predecessors), ['funcA'])
-        self.assertEqual(list(else_block_1.successors), ['L4', 'L5'])
+        self.assertEqual(list(else_block_1.successors), ['L4', 'L6'])
 
         if_block_2 = else_block_1.successors['L4']
         self.assertEqual(if_block_2.instructions[6].referenced, set(['print']))
         self.assertEqual(if_block_2.instructions[6].defined, set())
-        self.assertEqual(list(if_block_2.predecessors), ['L2'])
-        self.assertEqual(list(if_block_2.successors), ['L6'])
+        self.assertEqual(list(if_block_2.predecessors), ['L3'])
+        self.assertEqual(list(if_block_2.successors), ['L5'])
 
-        else_block_2 = else_block_1.successors['L5']
+        else_block_2 = else_block_1.successors['L6']
         self.assertEqual(else_block_2.instructions[8].referenced, set(['print']))
         self.assertEqual(else_block_2.instructions[8].defined, set())
-        self.assertEqual(list(else_block_2.predecessors), ['L2'])
-        self.assertEqual(list(else_block_2.successors), ['L6'])
+        self.assertEqual(list(else_block_2.predecessors), ['L3'])
+        self.assertEqual(list(else_block_2.successors), ['L5'])
 
-        exit_block_2 = if_block_2.successors['L6']
+        exit_block_2 = if_block_2.successors['L5']
         self.assertFalse(exit_block_2.instructions)
-        self.assertEqual(list(exit_block_2.predecessors), ['L4', 'L5'])
-        self.assertEqual(list(exit_block_2.successors), ['L3'])
+        self.assertEqual(list(exit_block_2.predecessors), ['L4', 'L6'])
+        self.assertEqual(list(exit_block_2.successors), ['L2'])
 
-        exit_block_1 = if_block_1.successors['L3']
+        exit_block_1 = if_block_1.successors['L2']
         self.assertFalse(exit_block_1.instructions)
-        self.assertEqual(list(exit_block_1.predecessors), ['L1', 'L6'])
+        self.assertEqual(list(exit_block_1.predecessors), ['L1', 'L5'])
 
     def test_single_for_loop(self):
         source = ('def funcA():\n'
@@ -109,7 +109,7 @@ class TestGenerateCFG(unittest.TestCase):
                   '    for item in favs:\n'
                   '        print("%s likes %s" % (name, item))')
         cfg = self._generate_cfg(source)
-        func_block = cfg.block_list[0]
+        func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
         self.assertEqual(func_block.instructions[2].defined, set(['favs']))
@@ -139,7 +139,7 @@ class TestGenerateCFG(unittest.TestCase):
                   '        for integer in numbers:\n'
                   '            print("%d " %integer)')
         cfg = self._generate_cfg(source)
-        func_block = cfg.block_list[0]
+        func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
         self.assertEqual(func_block.instructions[2].referenced, set())
@@ -186,7 +186,7 @@ class TestGenerateCFG(unittest.TestCase):
                   '    while i < 5:\n'
                   '        i += 1')
         cfg = self._generate_cfg(source)
-        func_block = cfg.block_list[0]
+        func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
         self.assertEqual(func_block.instructions[2].referenced, set())

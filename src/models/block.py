@@ -4,10 +4,12 @@
 # Python Version: 3.5
 
 
-from __future__ import print_function
 import collections
 
+from src.globals import *
+from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
 from src.models.counter import Counter
+from src.models.dataflowanalysis import ReachingDefinitionsAnalysis
 from src.models.instruction import Instruction
 
 
@@ -15,27 +17,49 @@ class BlockList(object):
     """
     List of blocks.
 
-    block_list: list(Block)
+    _block_list: list(Block)
         List of blocks.
     """
 
     def __init__(self):
-        self.block_list = []
+        self._block_list = []
 
     def __str__(self):
         string = ''
-        for block in self.block_list:
+        for block in self._block_list:
             for sorted_block in block.get_sorted_blocks():
                 string += '%s\n' %str(sorted_block)
         return string
 
+    # Adds block to block list.
     def add(self, block):
-        self.block_list.append(block)
+        self._block_list.append(block)
+
+    # Gets the block with the function name.
+    def get_func(self, func_name):
+        for block in self._block_list:
+            if block.label == func_name:
+                return block
+        return Nones
+
+    # Returns number of functions in the block list.
+    def get_num_funcs(self):
+        return len(self._block_list)
+
+    # Calculates reaching definitions for each FuctionBlock.
+    def get_reaching_definitions():
+        return self._perform_dataflow_analysis(ReachingDefinitionsAnalysis())
+
+    # Performs IterativeDataflowAnalysis on each FunctionBlock.
+    # Returns {FunctionBlock : FunctionBlockInformation}
+    def _perform_dataflow_analysis(analysis_class):
+        return {func_block: analysis_class.analyze(func_block)
+                for func_block in self._block_list}
 
 
 class BlockInterface(object):
     """
-    Block within a CFG.
+    Abstract class BlockInterface.
 
     successors: list(Block)
         Successors to block.
@@ -43,10 +67,6 @@ class BlockInterface(object):
         Predecessors to block.
     instructions: list(Instruction)
         Instructions in the block.
-    referenced: set(str)
-        Variables referenced in the block.
-    defined: set(str)
-        Variables defined in the block.
     label: str
         Label identifying the block.
     """
@@ -57,20 +77,13 @@ class BlockInterface(object):
         self.successors = collections.OrderedDict()
         self.predecessors = collections.OrderedDict()
         self.instructions = {}
-        self.referenced = set([])
-        self.defined = set([])
         self.label = label
 
     def __str__(self):
         len_tab = len(self.label)
 
         # Adds block header.
-        string = '%s | ' %str(self.label)
-        if self.referenced:
-            string += 'REF(%s) ' %(', '.join(self.referenced))
-        if self.defined:
-            string += 'DEF(%s)' %(', '.join(self.defined))
-        string += '\n'
+        string = '%s | \n' %str(self.label)
 
         # Adds predecessors and successors.
         successors = ' | successors(%s)\n' %(', '.join(self.successors.keys()))
@@ -100,10 +113,6 @@ class BlockInterface(object):
             raise ValueError('\'label\' is immutable')
         self.__label = label
 
-    # Returns next available label.
-    def _get_label(self):
-        return 'L%d' %Block._label_counter.increment()
-
     # Gets an instruction from the block.
     def _get_instruction(self, lineno):
         if lineno not in self.instructions:
@@ -114,23 +123,26 @@ class BlockInterface(object):
     def add_reference(self, lineno, variable):
         instruction = self._get_instruction(lineno)
         instruction.referenced.add(variable)
-        self.referenced.add(variable)
 
     # Adds variable defined at line number.
     def add_definition(self, lineno, variable):
         instruction = self._get_instruction(lineno)
         instruction.defined.add(variable)
-        self.defined.add(variable)
 
     # Adds a block as a successor and this block as its predecessor.
     def add_successor(self, block):
         self.successors[block.label] = block
         block.predecessors[self.label] = self
 
+    # Returns instructions.
+    def get_instructions(self):
+        sorted_instructions = iter(sorted(self.instructions.items()))
+        return [instruction for lineno, instruction in sorted_instructions]
+
 
 class Block(BlockInterface):
     """
-    General Block within a CFG.
+    Block representing body of the function within a CFG.
     """
 
     def __init__(self):
@@ -143,18 +155,20 @@ class Block(BlockInterface):
 
 class FunctionBlock(BlockInterface):
     """
-    FunctionBlock within a CFG.
+    Block representing start of a function within a CFG.
     """
 
     def __init__(self, label):
         super(self.__class__, self).__init__(label)
 
+    # Gets topologically sorted blocks.
     def get_sorted_blocks(self):
         visited = set()
         sorted_blocks = []
         self._topological_sort_helper(sorted_blocks, visited, self)
         return sorted_blocks
 
+    # Helper method to topologically sort blocks.
     def _topological_sort_helper(self, sorted_blocks, visited, current):
         visited.add(current.label)
         for key in reversed(current.successors.keys()):
