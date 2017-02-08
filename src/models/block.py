@@ -40,21 +40,65 @@ class BlockList(object):
         for block in self._block_list:
             if block.label == func_name:
                 return block
-        return Nones
+        return None
 
     # Returns number of functions in the block list.
     def get_num_funcs(self):
         return len(self._block_list)
 
     # Calculates reaching definitions for each FuctionBlock.
-    def get_reaching_definitions():
+    def get_reaching_definitions(self):
         return self._perform_dataflow_analysis(ReachingDefinitionsAnalysis())
 
     # Performs IterativeDataflowAnalysis on each FunctionBlock.
     # Returns {FunctionBlock : FunctionBlockInformation}
-    def _perform_dataflow_analysis(analysis_class):
-        return {func_block: analysis_class.analyze(func_block)
+    def _perform_dataflow_analysis(self, analysis_class):
+        return {func_block.label: analysis_class.analyze(func_block)
                 for func_block in self._block_list}
+
+    # Prints a slice calculated on the last statement of the functions.
+    def print_slice_last_statement(self):
+        reaching_defs = self.get_reaching_definitions()
+        for func_name, info in reaching_defs.items():
+            func = self.get_func(func_name)
+
+            # Get last statement.
+            sorted_blocks = func.get_sorted_blocks()
+            instr = sorted_blocks[-1].get_instructions()[-1]
+
+            # Get slice from instruction.
+            slice_instrs = self.get_slice(instr.lineno, func, info)
+            for instr in slice_instrs:
+                print(instr)
+        return None
+
+    # Get slice from instruction.
+    def get_slice(self, start_lineno, func, reaching_def):
+        sorted_blocks = func.get_sorted_blocks()
+        visited = set([start_lineno])
+        instrs = [start_lineno]
+        slice_map = {}
+
+        # Get all instructions in the slice.
+        while instrs:
+            # Get instruction and instruction info.
+            lineno = instrs.pop()
+            instr = reaching_def.get_instruction(lineno)
+            instr_info = reaching_def.get_instruction_info(lineno)
+
+            # Add to slice.
+            visited.add(lineno)
+            slice_map[instr.lineno] = instr
+
+            # Trace values of referenced values.
+            for var in instr.referenced:
+                if var in instr_info.in_node:
+                    for block_label, lineno in instr_info.in_node[var]:
+                        if lineno not in visited:
+                            instrs.append(lineno)
+
+        # Generate slice_map from ordered instructions.
+        return [slice_map[lineno] for lineno in sorted(visited)]
 
 
 class BlockInterface(object):

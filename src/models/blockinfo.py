@@ -94,7 +94,8 @@ class FunctionBlockInformation(object):
         self._block_info_class = None   # Type of BlockInformation child class.
         self._blocks = None             # List of blocks.
         self._block_info = None         # Map {Block : BlockInformation}.
-        self._instruction_info = None   # Map {Instruction: BlockInformation}.
+        self._instructions = None       # Map {lineno: Instruction}
+        self._instruction_info = None   # Map {lineno: BlockInformation}.
 
     def __ne__(self, other):
         return not self == other
@@ -112,8 +113,8 @@ class FunctionBlockInformation(object):
             if block_info != other.get_block_info(block):
                 return False
 
-        for lineno, block_info in self.instructions():
-            if block_info != other.get_instruction_info(lineno):
+        for instr, block_info in self.instructions():
+            if block_info != other.get_instruction_info(instr.lineno):
                 return False
 
         return True
@@ -124,13 +125,15 @@ class FunctionBlockInformation(object):
 
         self._blocks = []
         self._block_info = {}
+        self._instructions = {}
         self._instruction_info = {}
         self._block_info_class = block_info_class
 
         for block in func_block.get_sorted_blocks():
             self._blocks.append(block)
             self._block_info[block.label] = block_info_class()
-            for lineno in block.instructions.keys():
+            for lineno, instr in block.instructions.items():
+                self._instructions[lineno] = instr
                 self._instruction_info[lineno] = block_info_class()
 
     # Returns ordered list of (Block, BlockInformation) tuples.
@@ -140,12 +143,17 @@ class FunctionBlockInformation(object):
 
     # Returns ordered list of (Instruction, BlockInformation) in tuples.
     def instructions(self):
-        return self._instruction_info.items()
+        return [(instr, self._instruction_info[lineno])
+                for lineno, instr in self._instructions.items()]
 
     # Returns BlockInformation for a given Block.
     def get_block_info(self, block):
         return self._block_info[block.label]
 
-    # Returns BlockInformation for a given Instruction.
+    # Gets instruction for a given line number.
+    def get_instruction(self, lineno):
+        return self._instructions[lineno]
+
+    # Returns BlockInformation for a given line number.
     def get_instruction_info(self, lineno):
         return self._instruction_info[lineno]

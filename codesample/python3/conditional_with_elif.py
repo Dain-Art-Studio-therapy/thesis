@@ -7,5 +7,6 @@ def print_status():
        print(varB)
    else:
        print(varC)
+   return varA
 
 print_status()

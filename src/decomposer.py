@@ -64,6 +64,9 @@ def process_args():
 #    python -m src.decomposer codesample/python2/conditional_with_elif.py
 #    python3 -m src.decomposer codesample/python3/conditional_with_elif.py
 #
+#    python -m src.decomposer codesample/python2/simple_reaching_def.py
+#    python3 -m src.decomposer codesample/python3/simple_reaching_def.py
+#
 #    python -m src.decomposer codesample/python2/hw4_cast_1.py --debug
 #
 def main():
@@ -77,7 +80,9 @@ def main():
     # Generate CFG.
     generator = CFGGenerator(args.debug)
     cfg = generator.generate(node)
-    print(cfg)
+
+    # Prints slice calculated on the return statement.
+    cfg.print_slice_last_statement()
 
 
 if __name__ == '__main__':

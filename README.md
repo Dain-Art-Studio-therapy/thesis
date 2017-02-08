@@ -21,8 +21,8 @@
 # Extended TODO List
 ### Current Tasks
 
-1. Calculate slices for the return statement.
-2. Finish reading the paper (until necessary).
+1. Finish reading the paper (until necessary).
+2. Finish testing algorithm.
 
 ### Test Cases to Add
 
@@ -46,7 +46,8 @@
 
 ### Future Considerations
 
-1. Make `BlockInterface` an abstract class using `abc`.
-2. Refactor `generatecfg.py` to not use `current_block`.
-3. Make `instructions` in `Block` a private variable.
-4. Refactor `BlockInformation` to `NodeInformation`.
+1. Refactor calculation of slice --> move out of `print_slice_last_statement`
+2. Make `BlockInterface` an abstract class using `abc`.
+3. Refactor `generatecfg.py` to not use `current_block`.
+4. Make `instructions` in `Block` a private variable.
+5. Refactor `BlockInformation` to `NodeInformation`.
