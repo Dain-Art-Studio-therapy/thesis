@@ -19,6 +19,11 @@
 
 
 # Extended TODO List
+### Current Tasks
+
+1. Calculate slices for the return statement.
+2. Finish reading the paper (until necessary).
+
 ### Test Cases to Add
 
 1. Test `BlockList` and `Block.get_instructions()`.
@@ -29,6 +34,7 @@
       `print i`
 5. Multiple assignments single line
       `m = n = 1`
+6. dataflowanalysis.py --> two assignments in one line
 
 ### Features to Add in Type Checker
 
@@ -42,3 +48,5 @@
 
 1. Make `BlockInterface` an abstract class using `abc`.
 2. Refactor `generatecfg.py` to not use `current_block`.
+3. Make `instructions` in `Block` a private variable.
+4. Refactor `BlockInformation` to `NodeInformation`.

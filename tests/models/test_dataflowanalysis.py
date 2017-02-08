@@ -48,11 +48,11 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
         info.init(self.funcA, ReachingDefinitions)
 
         func_gen = analysismethod._compute_func_gen(info)
-        self.assertEqual(func_gen, {'i': set([2, 6, 10]),
-                                    'j': set([3, 7]),
-                                    'a': set([4, 9])})
+        self.assertEqual(func_gen, {'i': set([('funcA', 2), ('L2', 6), ('L5', 10)]),
+                                    'j': set([('funcA', 3), ('L2', 7)]),
+                                    'a': set([('funcA', 4), ('L4', 9)])})
 
-    def test_compute_gen_kill(self):
+    def test_compute_gen_kill_func(self):
         analysismethod = ReachingDefinitionsAnalysis()
         info = FunctionBlockInformation()
         info.init(self.funcA, ReachingDefinitions)
@@ -62,12 +62,12 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
 
         # funcA block.
         cur_block_info = info.get_block_info(self.funcA)
-        self.assertEqual(cur_block_info.gen, {'i': set([2]),
-                                              'j': set([3]),
-                                              'a': set([4])})
-        self.assertEqual(cur_block_info.kill, {'i': set([6, 10]),
-                                               'j': set([7]),
-                                               'a': set([9])})
+        self.assertEqual(cur_block_info.gen, {'i': set([('funcA', 2)]),
+                                              'j': set([('funcA', 3)]),
+                                              'a': set([('funcA', 4)])})
+        self.assertEqual(cur_block_info.kill, {'i': set([('L2', 6), ('L5', 10)]),
+                                               'j': set([('L2', 7)]),
+                                               'a': set([('L4', 9)])})
 
         # L1 block.
         guard_block = self.funcA.successors['L1']
@@ -78,22 +78,22 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
         # L2 block.
         loop_body_start_block = guard_block.successors['L2']
         cur_block_info = info.get_block_info(loop_body_start_block)
-        self.assertEqual(cur_block_info.gen, {'i': set([6]),
-                                              'j': set([7])})
-        self.assertEqual(cur_block_info.kill, {'i': set([2, 10]),
-                                               'j': set([3])})
+        self.assertEqual(cur_block_info.gen, {'i': set([('L2', 6)]),
+                                              'j': set([('L2', 7)])})
+        self.assertEqual(cur_block_info.kill, {'i': set([('funcA', 2), ('L5', 10)]),
+                                               'j': set([('funcA', 3)])})
 
         # L4 block.
         if_body_block = loop_body_start_block.successors['L4']
         cur_block_info = info.get_block_info(if_body_block)
-        self.assertEqual(cur_block_info.gen, {'a': set([9])})
-        self.assertEqual(cur_block_info.kill, {'a': set([4])})
+        self.assertEqual(cur_block_info.gen, {'a': set([('L4', 9)])})
+        self.assertEqual(cur_block_info.kill, {'a': set([('funcA', 4)])})
 
         # L5 block.
         loop_body_end_block = loop_body_start_block.successors['L5']
         cur_block_info = info.get_block_info(loop_body_end_block)
-        self.assertEqual(cur_block_info.gen, {'i': set([10])})
-        self.assertEqual(cur_block_info.kill, {'i': set([2, 6])})
+        self.assertEqual(cur_block_info.gen, {'i': set([('L5', 10)])})
+        self.assertEqual(cur_block_info.kill, {'i': set([('funcA', 2), ('L2', 6)])})
 
         # L3 block.
         exit_block = guard_block.successors['L3']
@@ -101,66 +101,169 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
         self.assertEqual(len(cur_block_info.gen), 0)
         self.assertEqual(len(cur_block_info.kill), 0)
 
-    def test_compute_info(self):
+    def test_compute_gen_kill_instr(self):
+        analysismethod = ReachingDefinitionsAnalysis()
+        info = FunctionBlockInformation()
+        info.init(self.funcA, ReachingDefinitions)
+
+        func_gen = analysismethod._compute_func_gen(info)
+        analysismethod._compute_gen_kill(info, func_gen)
+
+        # Line 2.
+        cur_instr_info = info.get_instruction_info(2)
+        self.assertEqual(cur_instr_info.gen, {'i': set([('funcA', 2)])})
+        self.assertEqual(cur_instr_info.kill, {'i': set([('L2', 6), ('L5', 10)])})
+
+        # Line 3.
+        cur_instr_info = info.get_instruction_info(3)
+        self.assertEqual(cur_instr_info.gen, {'j': set([('funcA', 3)])})
+        self.assertEqual(cur_instr_info.kill, {'j': set([('L2', 7)])})
+
+        # Line 4.
+        cur_instr_info = info.get_instruction_info(4)
+        self.assertEqual(cur_instr_info.gen, {'a': set([('funcA', 4)])})
+        self.assertEqual(cur_instr_info.kill, {'a': set([('L4', 9)])})
+
+        # Line 6.
+        cur_instr_info = info.get_instruction_info(6)
+        self.assertEqual(cur_instr_info.gen, {'i': set([('L2', 6)])})
+        self.assertEqual(cur_instr_info.kill, {'i': set([('funcA', 2), ('L5', 10)])})
+
+        # Line 7.
+        cur_instr_info = info.get_instruction_info(7)
+        self.assertEqual(cur_instr_info.gen, {'j': set([('L2', 7)])})
+        self.assertEqual(cur_instr_info.kill, {'j': set([('funcA', 3)])})
+
+        # Line 9.
+        cur_instr_info = info.get_instruction_info(9)
+        self.assertEqual(cur_instr_info.gen, {'a': set([('L4', 9)])})
+        self.assertEqual(cur_instr_info.kill, {'a': set([('funcA', 4)])})
+
+        # Line 10.
+        cur_instr_info = info.get_instruction_info(10)
+        self.assertEqual(cur_instr_info.gen, {'i': set([('L5', 10)])})
+        self.assertEqual(cur_instr_info.kill, {'i': set([('funcA', 2), ('L2', 6)])})
+
+    def test_compute_info_func(self):
         analysismethod = ReachingDefinitionsAnalysis()
         info = analysismethod.analyze(self.funcA)
 
         # funcA block.
         cur_block_info = info.get_block_info(self.funcA)
-        self.assertEqual(len(cur_block_info.in_block), 0)
-        self.assertEqual(cur_block_info.out_block, {'i': set([2]),
-                                                    'j': set([3]),
-                                                    'a': set([4])})
+        self.assertEqual(len(cur_block_info.in_node), 0)
+        self.assertEqual(cur_block_info.out_node, {'i': set([('funcA', 2)]),
+                                                   'j': set([('funcA', 3)]),
+                                                   'a': set([('funcA', 4)])})
 
         # L1 block.
         guard_block = self.funcA.successors['L1']
         cur_block_info = info.get_block_info(guard_block)
-        self.assertEqual(cur_block_info.in_block, {'i': set([2, 10]),
-                                                   'j': set([3, 7]),
-                                                   'a': set([4, 9])})
-        self.assertEqual(cur_block_info.out_block, {'i': set([2, 10]),
-                                                    'j': set([3, 7]),
-                                                    'a': set([4, 9])})
+        self.assertEqual(cur_block_info.in_node, {'i': set([('funcA', 2), ('L5', 10)]),
+                                                  'j': set([('funcA', 3), ('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_block_info.out_node, {'i': set([('funcA', 2), ('L5', 10)]),
+                                                   'j': set([('funcA', 3), ('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
 
         # L2 block.
         loop_body_start_block = guard_block.successors['L2']
         cur_block_info = info.get_block_info(loop_body_start_block)
-        self.assertEqual(cur_block_info.in_block, {'i': set([2, 10]),
-                                                   'j': set([3, 7]),
-                                                   'a': set([4, 9])})
-        self.assertEqual(cur_block_info.out_block, {'i': set([6]),
-                                                    'j': set([7]),
-                                                    'a': set([4, 9])})
+        self.assertEqual(cur_block_info.in_node, {'i': set([('funcA', 2), ('L5', 10)]),
+                                                  'j': set([('funcA', 3), ('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_block_info.out_node, {'i': set([('L2', 6)]),
+                                                   'j': set([('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
 
         # L4 block.
         if_body_block = loop_body_start_block.successors['L4']
         cur_block_info = info.get_block_info(if_body_block)
-        self.assertEqual(cur_block_info.in_block, {'i': set([6]),
-                                                   'j': set([7]),
-                                                   'a': set([4, 9])})
-        self.assertEqual(cur_block_info.out_block, {'i': set([6]),
-                                                    'j': set([7]),
-                                                    'a': set([9])})
+        self.assertEqual(cur_block_info.in_node, {'i': set([('L2', 6)]),
+                                                  'j': set([('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_block_info.out_node, {'i': set([('L2', 6)]),
+                                                   'j': set([('L2', 7)]),
+                                                   'a': set([('L4', 9)])})
 
         # L5 block.
         loop_body_end_block = loop_body_start_block.successors['L5']
         cur_block_info = info.get_block_info(loop_body_end_block)
-        self.assertEqual(cur_block_info.in_block, {'i': set([6]),
-                                                   'j': set([7]),
-                                                   'a': set([4, 9])})
-        self.assertEqual(cur_block_info.out_block, {'i': set([10]),
-                                                    'j': set([7]),
-                                                    'a': set([4, 9])})
+        self.assertEqual(cur_block_info.in_node, {'i': set([('L2', 6)]),
+                                                  'j': set([('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_block_info.out_node, {'i': set([('L5', 10)]),
+                                                   'j': set([('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
 
         # L3 block.
         exit_block = guard_block.successors['L3']
         cur_block_info = info.get_block_info(exit_block)
-        self.assertEqual(cur_block_info.in_block, {'i': set([2, 10]),
-                                                   'j': set([3, 7]),
-                                                   'a': set([4, 9])})
-        self.assertEqual(cur_block_info.out_block, {'i': set([2, 10]),
-                                                    'j': set([3, 7]),
-                                                    'a': set([4, 9])})
+        self.assertEqual(cur_block_info.in_node, {'i': set([('funcA', 2), ('L5', 10)]),
+                                                  'j': set([('funcA', 3), ('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_block_info.out_node, {'i': set([('funcA', 2), ('L5', 10)]),
+                                                   'j': set([('funcA', 3), ('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
+
+
+    def test_compute_info_instr(self):
+        analysismethod = ReachingDefinitionsAnalysis()
+        info = analysismethod.analyze(self.funcA)
+
+        # Line 2.
+        cur_instr_info = info.get_instruction_info(2)
+        self.assertEqual(cur_instr_info.in_node, {})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('funcA', 2)])})
+
+        # Line 3.
+        cur_instr_info = info.get_instruction_info(3)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('funcA', 2)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('funcA', 2)]),
+                                                   'j': set([('funcA', 3)])})
+
+        # Line 4.
+        cur_instr_info = info.get_instruction_info(4)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('funcA', 2)]),
+                                                  'j': set([('funcA', 3)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('funcA', 2)]),
+                                                   'j': set([('funcA', 3)]),
+                                                   'a': set([('funcA', 4)])})
+
+        # Line 6.
+        cur_instr_info = info.get_instruction_info(6)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('funcA', 2), ('L5', 10)]),
+                                                  'j': set([('funcA', 3), ('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('L2', 6)]),
+                                                   'j': set([('funcA', 3), ('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
+        # Line 7.
+        cur_instr_info = info.get_instruction_info(7)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('L2', 6)]),
+                                                  'j': set([('funcA', 3), ('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('L2', 6)]),
+                                                   'j': set([('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
+
+        # Line 9.
+        cur_instr_info = info.get_instruction_info(9)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('L2', 6)]),
+                                                  'j': set([('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('L2', 6)]),
+                                                   'j': set([('L2', 7)]),
+                                                   'a': set([('L4', 9)])})
+
+        # Line 10.
+        cur_instr_info = info.get_instruction_info(10)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('L2', 6)]),
+                                                  'j': set([('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('L5', 10)]),
+                                                   'j': set([('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
+
 
 if __name__ == '__main__':
      unittest.main()

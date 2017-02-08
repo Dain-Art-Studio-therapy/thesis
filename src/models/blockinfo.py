@@ -58,13 +58,13 @@ class BlockInformation(ABC):
 
 class ReachingDefinitions(BlockInformation):
     """
-    Reaching definitions for a block.
+    Reaching definitions for node (either Block or Instruction).
     """
 
     def __init__(self):
         super(self.__class__, self).__init__()
-        self.in_block = {}
-        self.out_block = {}
+        self.in_node = {}
+        self.out_node = {}
 
     def _is_dict_equal(self, dictA, dictB):
         if dictA.keys() != dictB.keys():
@@ -81,24 +81,20 @@ class ReachingDefinitions(BlockInformation):
 
         return (self._is_dict_equal(self.gen, other.gen) and
                 self._is_dict_equal(self.kill, other.kill) and
-                self._is_dict_equal(self.in_block, other.in_block) and
-                self._is_dict_equal(self.out_block, other.out_block))
+                self._is_dict_equal(self.in_node, other.in_node) and
+                self._is_dict_equal(self.out_node, other.out_node))
 
 
 class FunctionBlockInformation(object):
     """
     Information for a function block.
-
-    func_block: obj
-        FunctionBlock object.
-    block_info_class: obj
-        BlockInformation class.
     """
 
     def __init__(self):
-        self._blocks = None
-        self._block_info = None
-        self._block_info_class = None
+        self._block_info_class = None   # Type of BlockInformation child class.
+        self._blocks = None             # List of blocks.
+        self._block_info = None         # Map {Block : BlockInformation}.
+        self._instruction_info = None   # Map {Instruction: BlockInformation}.
 
     def __ne__(self, other):
         return not self == other
@@ -112,8 +108,12 @@ class FunctionBlockInformation(object):
             other._block_info.keys() != other._block_info.keys()):
             return False
 
-        for block, block_info in self.items():
+        for block, block_info in self.blocks():
             if block_info != other.get_block_info(block):
+                return False
+
+        for lineno, block_info in self.instructions():
+            if block_info != other.get_instruction_info(lineno):
                 return False
 
         return True
@@ -124,17 +124,28 @@ class FunctionBlockInformation(object):
 
         self._blocks = []
         self._block_info = {}
+        self._instruction_info = {}
         self._block_info_class = block_info_class
 
         for block in func_block.get_sorted_blocks():
             self._blocks.append(block)
             self._block_info[block.label] = block_info_class()
+            for lineno in block.instructions.keys():
+                self._instruction_info[lineno] = block_info_class()
 
     # Returns ordered list of (Block, BlockInformation) tuples.
-    def items(self):
+    def blocks(self):
         return [(block, self._block_info[block.label])
                 for block in self._blocks]
+
+    # Returns ordered list of (Instruction, BlockInformation) in tuples.
+    def instructions(self):
+        return self._instruction_info.items()
 
     # Returns BlockInformation for a given Block.
     def get_block_info(self, block):
         return self._block_info[block.label]
+
+    # Returns BlockInformation for a given Instruction.
+    def get_instruction_info(self, lineno):
+        return self._instruction_info[lineno]
