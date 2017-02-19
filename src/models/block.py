@@ -64,12 +64,20 @@ class BlockList(object):
 
             # Get last statement.
             sorted_blocks = func.get_sorted_blocks()
-            instr = sorted_blocks[-1].get_instructions()[-1]
+            instr = None
+            idx = -1
+            while instr is None:
+                instrs = sorted_blocks[idx].get_instructions()
+                if instrs:
+                    instr = instrs[-1]
+                idx -= 1
 
             # Get slice from instruction.
             slice_instrs = self.get_slice(instr.lineno, func, info)
+            print('%s (%d)' %(func.label, func.get_cyclomatic_complexity()))
             for instr in slice_instrs:
-                print(instr)
+                print('\t%s' %instr)
+            print('')
         return None
 
     # Get slice from instruction.
@@ -220,3 +228,19 @@ class FunctionBlock(BlockInterface):
             if successor.label not in visited:
                 self._topological_sort_helper(sorted_blocks, visited, successor)
         sorted_blocks.insert(0, current)
+
+    # Returns the cyclomatic complexity.
+    def get_cyclomatic_complexity(self):
+        sorted_blocks = self.get_sorted_blocks()
+        nodes = len(sorted_blocks)
+        edges = 0
+        exits = 0
+
+        # Get number of edges
+        for idx, block in enumerate(sorted_blocks):
+            for successor in block.successors:
+                edges += 1
+            if len(block.predecessors) > 1 or (idx == nodes - 1):
+                exits += 1
+
+        return edges - nodes + 2 * exits

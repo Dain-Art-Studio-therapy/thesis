@@ -67,7 +67,7 @@ class ReachingDefinitions(BlockInformation):
         self.out_node = {}
 
     def _is_dict_equal(self, dictA, dictB):
-        if dictA.keys() != dictB.keys():
+        if sorted(dictA.keys()) != sorted(dictB.keys()):
             return False
 
         for key in dictA.keys():
