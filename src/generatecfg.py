@@ -9,7 +9,7 @@ import _ast
 
 from src.globals import *
 from src.models.block import BlockList, Block, FunctionBlock
-from src.models.instruction import Instruction
+from src.models.instruction import Instruction, InstructionType
 
 
 # Type of the variable.
@@ -92,10 +92,10 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_ClassDef')
     #     self.generic_visit(node)
 
-    # # Return(expr? value)
-    # def visit_Return(self, node):
-    #     print('visit_Return')
-    #     self.generic_visit(node)
+    # Return(expr? value)
+    def visit_Return(self, node):
+        self.current_block.add_instruction_type(node.lineno, InstructionType.RETURN)
+        self.generic_visit(node)
 
     # # Delete(expr* targets)
     # def visit_Delete(self, node):

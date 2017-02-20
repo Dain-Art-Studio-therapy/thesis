@@ -14,8 +14,8 @@ class IterativeDataflowAnalysis(ABC):
     """
     Abstract class to perform dataflow analysis.
 
-    block_info_type: BlockInformation
-        BlockInformation class.
+    block_info_type: NodeInformation
+        NodeInformation class.
     """
 
     def __init__(self, block_info_type):
@@ -56,18 +56,16 @@ class IterativeDataflowAnalysis(ABC):
             # Generate gen map for given block.
             for instruction in block.get_instructions():
                 for variable in instruction.defined:
-                    if not variable in info.gen:
-                        info.gen[variable] = set()
-                    info.gen[variable].add((block.label, instruction.lineno))
+                    info.gen[variable] = set([(block.label, instruction.lineno)])
 
                 # Generate gen and kill map for given instruction.
                 instr_info = func_block_info.get_instruction_info(instruction.lineno)
                 instr_info.gen = {var: set([(block.label, instruction.lineno)])
                                   for var in instruction.defined}
-                instr_info.kill = BlockInformation.diff_common_keys(func_gen, instr_info.gen)
+                instr_info.kill = NodeInformation.diff_common_keys(func_gen, instr_info.gen)
 
             # Generate kill map for given block.
-            info.kill = BlockInformation.diff_common_keys(func_gen, info.gen)
+            info.kill = NodeInformation.diff_common_keys(func_gen, info.gen)
  
     # Computes the information specific to the iterative data flow.
     @abstractmethod
@@ -90,11 +88,11 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
             # Calculate in: Union all predecessors out.
             for func_name, predecessor in block.predecessors.items():
                 predecessor_info = func_block_info.get_block_info(predecessor)
-                info.in_node = BlockInformation.union(predecessor_info.out_node, info.in_node)
+                info.in_node = NodeInformation.union(predecessor_info.out_node, info.in_node)
 
             # Calculate out: gen UNION (in - kill)
-            in_sub_kill = BlockInformation.sub(info.in_node, info.kill)
-            info.out_node = BlockInformation.union(info.gen, in_sub_kill)
+            in_sub_kill = NodeInformation.sub(info.in_node, info.kill)
+            info.out_node = NodeInformation.union(info.gen, in_sub_kill)
 
             # Calculate block information for all instructions in the block.
             prev_info = info.in_node
@@ -102,6 +100,6 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
                 instr_info = func_block_info.get_instruction_info(lineno)
                 instr_info.in_node = prev_info
 
-                in_sub_kill = BlockInformation.sub(instr_info.in_node, instr_info.kill)
-                instr_info.out_node = BlockInformation.union(instr_info.gen, in_sub_kill)
+                in_sub_kill = NodeInformation.sub(instr_info.in_node, instr_info.kill)
+                instr_info.out_node = NodeInformation.union(instr_info.gen, in_sub_kill)
                 prev_info = instr_info.out_node

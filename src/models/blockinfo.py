@@ -7,9 +7,9 @@
 from src.globals import *
 
 
-class BlockInformation(ABC):
+class NodeInformation(ABC):
     """
-    Abstract class containing BlockInformation.
+    Abstract class containing NodeInformation.
     """
 
     def __init__(self):
@@ -56,7 +56,7 @@ class BlockInformation(ABC):
         return result
 
 
-class ReachingDefinitions(BlockInformation):
+class ReachingDefinitions(NodeInformation):
     """
     Reaching definitions for node (either Block or Instruction).
     """
@@ -91,11 +91,11 @@ class FunctionBlockInformation(object):
     """
 
     def __init__(self):
-        self._block_info_class = None   # Type of BlockInformation child class.
+        self._block_info_class = None   # Type of NodeInformation child class.
         self._blocks = None             # List of blocks.
-        self._block_info = None         # Map {Block : BlockInformation}.
+        self._block_info = None         # Map {Block : NodeInformation}.
         self._instructions = None       # Map {lineno: Instruction}
-        self._instruction_info = None   # Map {lineno: BlockInformation}.
+        self._instruction_info = None   # Map {lineno: NodeInformation}.
 
     def __ne__(self, other):
         return not self == other
@@ -121,7 +121,7 @@ class FunctionBlockInformation(object):
 
     # Initializes FunctionBlockInformation.
     def init(self, func_block, block_info_class):
-        assert issubclass(type(block_info_class()), BlockInformation)
+        assert issubclass(type(block_info_class()), NodeInformation)
 
         self._blocks = []
         self._block_info = {}
@@ -136,17 +136,17 @@ class FunctionBlockInformation(object):
                 self._instructions[lineno] = instr
                 self._instruction_info[lineno] = block_info_class()
 
-    # Returns ordered list of (Block, BlockInformation) tuples.
+    # Returns ordered list of (Block, NodeInformation) tuples.
     def blocks(self):
         return [(block, self._block_info[block.label])
                 for block in self._blocks]
 
-    # Returns ordered list of (Instruction, BlockInformation) in tuples.
+    # Returns ordered list of (Instruction, NodeInformation) in tuples.
     def instructions(self):
         return [(instr, self._instruction_info[lineno])
                 for lineno, instr in self._instructions.items()]
 
-    # Returns BlockInformation for a given Block.
+    # Returns NodeInformation for a given Block.
     def get_block_info(self, block):
         return self._block_info[block.label]
 
@@ -154,6 +154,6 @@ class FunctionBlockInformation(object):
     def get_instruction(self, lineno):
         return self._instructions[lineno]
 
-    # Returns BlockInformation for a given line number.
+    # Returns NodeInformation for a given line number.
     def get_instruction_info(self, lineno):
         return self._instruction_info[lineno]

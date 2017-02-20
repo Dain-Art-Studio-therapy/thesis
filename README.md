@@ -21,19 +21,14 @@
 # Extended TODO List
 ### Current Tasks
 
-Sunday: Clean up + Cyclometric complexity
-
-1. Add test cases
-2. Make "minor" refactors
-3. Create type checker
-4. Test type checker
-
 Monday: Slicing algorithm
 
 1. Finish reading the paper (until necessary).
 2. Rewrite slicing algorithm to copy CFG
 3. Test slicing algorithm
 4. Run cyclometric complexity on small CFG
+5. Create type checker
+6. Test type checker
 
 Tuesday: Run experiments
 
@@ -42,23 +37,9 @@ Tuesday: Run experiments
 3. Determine experiments to run Tuesday/Wednesday
 
 
-### Test Cases to Add
+### Questions
 
-1. `block.py`: all functions
-2. `test_generatecfg.py`:
-    - if without else.
-    - list comprehension
-    - Multiple assignments single line (`m = n = 1`)
-4. `dataflowanalysis.py`:
-    - Two assignments in one line
-
-
-### Minor Changes to Refactor
-
-1. Make `BlockInterface` an abstract class using `abc`.
-2. Add instruction type.
-3. Make `instructions` in `Block` a private variable.
-4. Refactor `BlockInformation` to `NodeInformation`.
+1.  Gen set in a block with same variable assigned twice - should it link to the second assignment, and have first assignment in kill set?
 
 
 ### Features to Add in Type Checker
@@ -69,7 +50,7 @@ Tuesday: Run experiments
       `x = [x for x in [1, 2, 3]]`
       `print x`
 4. Check for unintialized variables.
-5. if/else both have return instead of if (return) <code>
+5. if/else both have return instead of if (return) [code]
 
 
 ### Future Considerations

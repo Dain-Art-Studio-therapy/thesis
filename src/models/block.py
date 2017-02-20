@@ -46,16 +46,19 @@ class BlockList(object):
     def get_num_funcs(self):
         return len(self._block_list)
 
+    # TODO: MOVE
     # Calculates reaching definitions for each FuctionBlock.
     def get_reaching_definitions(self):
         return self._perform_dataflow_analysis(ReachingDefinitionsAnalysis())
 
+    # TODO: MOVE
     # Performs IterativeDataflowAnalysis on each FunctionBlock.
     # Returns {FunctionBlock : FunctionBlockInformation}
     def _perform_dataflow_analysis(self, analysis_class):
         return {func_block.label: analysis_class.analyze(func_block)
                 for func_block in self._block_list}
 
+    # TODO: MOVE
     # Prints a slice calculated on the last statement of the functions.
     def print_slice_last_statement(self):
         reaching_defs = self.get_reaching_definitions()
@@ -80,6 +83,7 @@ class BlockList(object):
             print('')
         return None
 
+    # TODO: MOVE
     # Get slice from instruction.
     def get_slice(self, start_lineno, func, reaching_def):
         sorted_blocks = func.get_sorted_blocks()
@@ -109,7 +113,7 @@ class BlockList(object):
         return [slice_map[lineno] for lineno in sorted(visited)]
 
 
-class BlockInterface(object):
+class BlockInterface(ABC):
     """
     Abstract class BlockInterface.
 
@@ -181,6 +185,11 @@ class BlockInterface(object):
         instruction = self._get_instruction(lineno)
         instruction.defined.add(variable)
 
+    # Adds instruction type at line number.
+    def add_instruction_type(self, lineno, instruction_type):
+        instruction = self._get_instruction(lineno)
+        instruction.instruction_type = instruction_type
+
     # Adds a block as a successor and this block as its predecessor.
     def add_successor(self, block):
         self.successors[block.label] = block
@@ -229,18 +238,30 @@ class FunctionBlock(BlockInterface):
                 self._topological_sort_helper(sorted_blocks, visited, successor)
         sorted_blocks.insert(0, current)
 
-    # Returns the cyclomatic complexity.
-    def get_cyclomatic_complexity(self):
-        sorted_blocks = self.get_sorted_blocks()
-        nodes = len(sorted_blocks)
-        edges = 0
-        exits = 0
+    # Gets number of nodes.
+    def _get_num_nodes(self, sorted_blocks):
+        return len(sorted_blocks)
 
-        # Get number of edges
+    # Gets the number of edges.
+    def _get_num_edges(self, sorted_blocks):
+        edges = 0
         for idx, block in enumerate(sorted_blocks):
             for successor in block.successors:
                 edges += 1
+        return edges
+
+    # Gets the number of exits.
+    def _get_num_exits(self, sorted_blocks, nodes):
+        exits = 0
+        for idx, block in enumerate(sorted_blocks):
             if len(block.predecessors) > 1 or (idx == nodes - 1):
                 exits += 1
+        return exits
 
+    # Returns the cyclomatic complexity.
+    def get_cyclomatic_complexity(self):
+        sorted_blocks = self.get_sorted_blocks()
+        nodes = self._get_num_nodes(sorted_blocks)
+        edges = self._get_num_edges(sorted_blocks)
+        exits = self._get_num_exits(sorted_blocks, nodes)
         return edges - nodes + 2 * exits

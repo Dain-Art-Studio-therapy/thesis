@@ -5,10 +5,12 @@
 
 
 import unittest
+import ast
 
 from src.globals import *
 from src.models.block import Block, FunctionBlock
 from src.models.instruction import Instruction
+from src.generatecfg import CFGGenerator
 
 
 # Test Block class.
@@ -40,7 +42,7 @@ class TestBlock(unittest.TestCase):
         self.block1.add_definition(lineno=1, variable='varB')
         self.assertEqual(self.block1.instructions[1].referenced, set(['varA']))
         self.assertEqual(self.block1.instructions[1].defined, set(['varB']))
-        self.assertEqual(len(self.block1.instructions), 1)
+        self.assertEqual(len(self.block1.get_instructions()), 1)
         self.assertEqual(set(self.block1.instructions.keys()), set([1]))
 
         self.block1.add_reference(lineno=2, variable='varA')
@@ -48,8 +50,16 @@ class TestBlock(unittest.TestCase):
         self.block1.add_definition(lineno=2, variable='varC')
         self.assertEqual(self.block1.instructions[2].referenced, set(['varA', 'varB']))
         self.assertEqual(self.block1.instructions[2].defined, set(['varC']))
-        self.assertEqual(len(self.block1.instructions), 2)
+        self.assertEqual(len(self.block1.get_instructions()), 2)
         self.assertEqual(set(self.block1.instructions.keys()), set([1, 2]))
+
+    def test_get_instructions(self):
+        self.block1.add_reference(lineno=2, variable='varA')
+        self.block1.add_definition(lineno=1, variable='varA')
+
+        instructions = self.block1.get_instructions()
+        self.assertEqual(instructions[0].lineno, 1)
+        self.assertEqual(instructions[1].lineno, 2)
 
 
 # Tests FunctionBlock class.
@@ -62,6 +72,53 @@ class TestFunctionBlock(unittest.TestCase):
         self.assertEqual(self.func_block1.label, 'func1')
         with self.assertRaises(ValueError) as context:
             self.func_block1.label = 'error_label'
+
+    def test_get_sorted_blocks(self):
+        Block._label_counter.reset()
+        source = ('def funcA():\n'
+                  '    integers = [[1, 2], [3, 4]]\n'
+                  '    for numbers in integers:\n'
+                  '        for integer in numbers:\n'
+                  '            print("%d " %integer)')
+
+        generator = CFGGenerator(False)
+        node = ast.parse(source)
+        cfg = generator.generate(node)
+        funcA = cfg.get_func('funcA')
+        sorted_blocks = funcA.get_sorted_blocks()
+
+        self.assertEqual(sorted_blocks[0].label, 'funcA')
+        self.assertEqual(sorted_blocks[1].label, 'L1')
+        self.assertEqual(sorted_blocks[2].label, 'L2')
+        self.assertEqual(sorted_blocks[3].label, 'L4')
+        self.assertEqual(sorted_blocks[4].label, 'L5')
+        self.assertEqual(sorted_blocks[5].label, 'L6')
+        self.assertEqual(sorted_blocks[6].label, 'L3')
+
+    def test_get_cyclomatic_complexity(self):
+        Block._label_counter.reset()
+        source = ('def funcA():\n'              # line 1
+                  '     i = 3\n'                # line 2
+                  '     i = j = i + 1\n'        # line 3
+                  '     a = j + 2\n'            # line 4
+                  '     while a > 0:\n'         # line 5
+                  '         i = i + 1\n'        # line 6
+                  '         j = j - 1\n'        # line 7
+                  '         if i != j:\n'       # line 8
+                  '             a = a - 1\n'    # line 9
+                  '         i = i + 1')         # line 10
+
+        generator = CFGGenerator(False)
+        node = ast.parse(source)
+        cfg = generator.generate(node)
+        funcA = cfg.get_func('funcA')
+        sorted_blocks = funcA.get_sorted_blocks()
+
+        self.assertEqual(funcA._get_num_nodes(sorted_blocks), 6)
+        self.assertEqual(funcA._get_num_edges(sorted_blocks), 7)
+        self.assertEqual(funcA._get_num_exits(sorted_blocks, 6), 3)
+        self.assertEqual(funcA.get_cyclomatic_complexity(), 7)
+
 
 if __name__ == '__main__':
     unittest.main()
