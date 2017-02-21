@@ -21,21 +21,19 @@
 # Extended TODO List
 ### Current Tasks
 
-Monday: Slicing algorithm
+Tuesday: Slicing algorithm
 
-1. Finish reading the paper (until necessary).
-2. Rewrite slicing algorithm to copy CFG
+1. Convert slice list to small CFG
+2. Run cyclometric complexity on small CFG
 3. Test slicing algorithm
-4. Run cyclometric complexity on small CFG
-5. Create type checker
-6. Test type checker
+4. Finish reading the paper (until necessary).
+5. Find good and bad samples of code (starting at #20 cast.py)
+6. Try finding complexity on each line of code (avg for each sample)
+7. Determine experiments to run
 
-Tuesday: Run experiments
-
-1. Find good and bad samples of code (starting at #20 cast.py)
-2. Try finding complexity on each line of code (avg for each sample)
-3. Determine experiments to run Tuesday/Wednesday
-
+Wednesday: Experiments
+Thursday: Experiments
+Friday: Type Checker
 
 ### Questions
 

@@ -9,6 +9,7 @@ import ast
 import sys
 
 from src.globals import *
+from src.models.slice import Slice
 from src.generatecfg import CFGGenerator
 
 
@@ -65,7 +66,9 @@ def main():
     cfg = generator.generate(node)
 
     # Prints slice calculated on the return statement.
-    cfg.print_slice_last_statement()
+    for func_block in cfg.get_funcs():
+        func_slice = Slice(func_block)
+        func_slice.print_slice_last_statement()
 
 
 if __name__ == '__main__':
