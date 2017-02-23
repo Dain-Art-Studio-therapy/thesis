@@ -132,9 +132,9 @@ class FunctionBlockInformation(object):
         for block in func_block.get_sorted_blocks():
             self._blocks.append(block)
             self._block_info[block.label] = block_info_class()
-            for lineno, instr in block.instructions.items():
-                self._instructions[lineno] = instr
-                self._instruction_info[lineno] = block_info_class()
+            for instr in block.get_instructions():
+                self._instructions[instr.lineno] = instr
+                self._instruction_info[instr.lineno] = block_info_class()
 
     # Returns ordered list of (Block, NodeInformation) tuples.
     def blocks(self):

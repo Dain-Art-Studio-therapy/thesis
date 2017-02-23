@@ -5,6 +5,7 @@
 
 
 import collections
+import copy
 
 from src.globals import *
 from src.models.counter import Counter
@@ -57,7 +58,7 @@ class BlockInterface(ABC):
         Successors to block.
     predecessors: list(Block)
         Predecessors to block.
-    instructions: list(Instruction)
+    _instructions: list(Instruction)
         Instructions in the block.
     label: str
         Label identifying the block.
@@ -68,7 +69,7 @@ class BlockInterface(ABC):
     def __init__(self, label):
         self.successors = collections.OrderedDict()
         self.predecessors = collections.OrderedDict()
-        self.instructions = {}
+        self._instructions = {}
         self.label = label
 
     def __str__(self):
@@ -84,7 +85,7 @@ class BlockInterface(ABC):
         string += predecessors.rjust(len_tab + len(predecessors))
 
         # Adds instructions.
-        for lineno, instruction in self.instructions.items():
+        for instruction in self.get_instructions():
             string += '\t%s\n' %str(instruction)
         return string
 
@@ -107,9 +108,9 @@ class BlockInterface(ABC):
 
     # Gets an instruction from the block.
     def _get_instruction(self, lineno):
-        if lineno not in self.instructions:
-            self.instructions[lineno] = Instruction(lineno)
-        return self.instructions[lineno]
+        if lineno not in self._instructions:
+            self._instructions[lineno] = Instruction(lineno)
+        return self._instructions[lineno]
 
     # Adds variable reference at line number.
     def add_reference(self, lineno, variable):
@@ -126,14 +127,32 @@ class BlockInterface(ABC):
         instruction = self._get_instruction(lineno)
         instruction.instruction_type = instruction_type
 
+    # Adds instruction to instruction list.
+    def add_instruction(self, instruction):
+        self._instructions[instruction.lineno] = copy.deepcopy(instruction)
+
     # Adds a block as a successor and this block as its predecessor.
     def add_successor(self, block):
         self.successors[block.label] = block
         block.predecessors[self.label] = self
 
+    # Adds a block as a predecessor and this block as its successor.
+    def add_predecessor(self, block):
+        block.add_successor(self)
+
+    # Returns instruction at line number. Returns None if no instruction.
+    def get_instruction(self, lineno):
+        if lineno in self._instructions:
+            return self._instructions[lineno]
+        return None
+
+    # Returns line numbers of instructions in a block.
+    def get_instruction_linenos(self):
+        return set(self._instructions.keys())
+
     # Returns instructions.
     def get_instructions(self):
-        sorted_instructions = iter(sorted(self.instructions.items()))
+        sorted_instructions = iter(sorted(self._instructions.items()))
         return [instruction for lineno, instruction in sorted_instructions]
 
 

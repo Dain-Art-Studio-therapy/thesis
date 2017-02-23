@@ -19,25 +19,11 @@
 
 
 # Extended TODO List
-### Current Tasks
-
-Tuesday: Slicing algorithm
-
-1. Convert slice list to small CFG
-2. Run cyclometric complexity on small CFG
-3. Test slicing algorithm
-4. Finish reading the paper (until necessary).
-5. Find good and bad samples of code (starting at #20 cast.py)
-6. Try finding complexity on each line of code (avg for each sample)
-7. Determine experiments to run
-
-Wednesday: Experiments
-Thursday: Experiments
-Friday: Type Checker
-
 ### Questions
 
 1.  Gen set in a block with same variable assigned twice - should it link to the second assignment, and have first assignment in kill set?
+2. Should I make if/elif/else have 1 exit block?
+3. Can I have your code as a "good" comparison?
 
 
 ### Features to Add in Type Checker

@@ -30,6 +30,37 @@ class TestBlock(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.block1.label = 'error_label'
 
+    def test_add_reference(self):
+        self.block1.add_reference(lineno=1, variable='varA')
+        self.assertEqual(self.block1._instructions[1].referenced, set(['varA']))
+        self.assertFalse(self.block1._instructions[1].defined)
+        self.assertEqual(len(self.block1.get_instructions()), 1)
+        self.assertEqual(set(self.block1._instructions.keys()), set([1]))
+
+        self.block1.add_reference(lineno=2, variable='varA')
+        self.block1.add_reference(lineno=2, variable='varB')
+        self.assertEqual(self.block1._instructions[2].referenced, set(['varA', 'varB']))
+        self.assertFalse(self.block1._instructions[2].defined)
+        self.assertEqual(len(self.block1.get_instructions()), 2)
+        self.assertEqual(set(self.block1._instructions.keys()), set([1, 2]))
+
+    def test_add_definition(self):
+        self.block1.add_definition(lineno=1, variable='varB')
+        self.assertFalse(self.block1._instructions[1].referenced)
+        self.assertEqual(self.block1._instructions[1].defined, set(['varB']))
+        self.assertEqual(len(self.block1.get_instructions()), 1)
+        self.assertEqual(set(self.block1._instructions.keys()), set([1]))
+
+        self.block1.add_definition(lineno=2, variable='varA')
+        self.block1.add_definition(lineno=2, variable='varC')
+        self.assertFalse(self.block1._instructions[2].referenced)
+        self.assertEqual(self.block1._instructions[2].defined, set(['varA', 'varC']))
+        self.assertEqual(len(self.block1.get_instructions()), 2)
+        self.assertEqual(set(self.block1._instructions.keys()), set([1, 2]))
+
+    def test_method_add_instruction(self):
+        self.skipTest('TODO: Need to complete')
+
     def test_add_successor(self):
         self.block1.add_successor(self.block2)
         self.block1.add_successor(self.block3)
@@ -37,21 +68,14 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(list(self.block2.predecessors), [self.block1.label])
         self.assertEqual(list(self.block3.predecessors), [self.block1.label])
 
-    def test_add_instruction(self):
-        self.block1.add_reference(lineno=1, variable='varA')
-        self.block1.add_definition(lineno=1, variable='varB')
-        self.assertEqual(self.block1.instructions[1].referenced, set(['varA']))
-        self.assertEqual(self.block1.instructions[1].defined, set(['varB']))
-        self.assertEqual(len(self.block1.get_instructions()), 1)
-        self.assertEqual(set(self.block1.instructions.keys()), set([1]))
+    def test_add_predecessor(self):
+        self.skipTest('TODO: Need to complete')
 
-        self.block1.add_reference(lineno=2, variable='varA')
-        self.block1.add_reference(lineno=2, variable='varB')
-        self.block1.add_definition(lineno=2, variable='varC')
-        self.assertEqual(self.block1.instructions[2].referenced, set(['varA', 'varB']))
-        self.assertEqual(self.block1.instructions[2].defined, set(['varC']))
-        self.assertEqual(len(self.block1.get_instructions()), 2)
-        self.assertEqual(set(self.block1.instructions.keys()), set([1, 2]))
+    def test_get_instruction(self):
+        self.skipTest('TODO: Need to complete')
+
+    def test_get_instruction_linenos(self):
+        self.skipTest('TODO: Need to complete')
 
     def test_get_instructions(self):
         self.block1.add_reference(lineno=2, variable='varA')

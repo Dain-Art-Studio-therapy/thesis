@@ -96,8 +96,8 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
 
             # Calculate block information for all instructions in the block.
             prev_info = info.in_node
-            for lineno, instr in block.instructions.items():
-                instr_info = func_block_info.get_instruction_info(lineno)
+            for instr in block.get_instructions():
+                instr_info = func_block_info.get_instruction_info(instr.lineno)
                 instr_info.in_node = prev_info
 
                 in_sub_kill = NodeInformation.sub(instr_info.in_node, instr_info.kill)
