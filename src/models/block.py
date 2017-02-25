@@ -176,9 +176,10 @@ class BlockInterface(ABC):
     # Sets successsors list to the provided successors list.
     def set_successors(self, successors):
         # Remove successors reference to this block.
-        for successor in self.successors.values():
+        while self.successors:
+            successor = self.get_first_successor()
             if self.label in successor.predecessors:
-                successor.predecessors.pop(self.label)
+                successor.remove_predecessor(self)
 
         # Set new successors.
         self.successors = collections.OrderedDict()
@@ -194,26 +195,56 @@ class BlockInterface(ABC):
 
     # Replaces a successor block with the provided block.
     def replace_successor(self, cur_block, new_block):
+        if cur_block.label not in self.successors:
+            raise ValueError('Successor not found')
+
+        # Removes/replaces cur block from successors list.
         if self != new_block:
             self.successors = self._replace_block(self.successors, cur_block, new_block)
         else:
-            self.successors.pop(cur_block.label)
+            self.remove_successor(cur_block)
+
+        # Adds new predecessor to new block and removes from cur block.
+        new_block.add_predecessor(self)
+        cur_block.remove_predecessor(self)
 
     # Replaces a predecessor block with the provided block.
     def replace_predecessor(self, cur_block, new_block):
+        if cur_block.label not in self.predecessors:
+            raise ValueError('Predecessor not found')
+
+        # Removes/replaces cur block from predecessor list.
         if self != new_block:
             self.predecessors = self._replace_block(self.predecessors, cur_block, new_block)
         else:
-            self.successors.pop(cur_block.label)
+            self.remove_predecessor(cur_block)
+
+        # Adds new successor to new block and removes from cur block.
+        new_block.add_successor(self)
+        cur_block.remove_successor(self)
+
+    # Removes item from the OrderedDict.
+    def _remove_item(self, blocklist, block):
+        if blocklist and block.label in blocklist:
+            return blocklist.pop(block.label)
+        return None
+
+    # Removes successor from successors if the successor exists.
+    def remove_successor(self, block):
+        self._remove_item(block.predecessors, self)
+        self._remove_item(self.successors, block)
+
+    # Removes predecessor from predecessors if the predecessor exists.
+    def remove_predecessor(self, block):
+        self._remove_item(block.successors, self)
+        self._remove_item(self.predecessors, block)
 
     # Destroys the block by removing itself from successors and predecessors.
     def destroy(self):
-        # Remove successor from predecessors and successors
         for predecessor in self.predecessors.values():
-            predecessor.successors.pop(self.label)
+            predecessor.remove_successor(self)
         for successor in self.successors.values():
-            successor.predecessors.pop(self.label)
-        del self
+            successor.remove_predecessor(self)
 
     # Returns instruction at line number. Returns None if no instruction.
     def get_instruction(self, lineno):
@@ -229,6 +260,18 @@ class BlockInterface(ABC):
     def get_instructions(self):
         sorted_instructions = iter(sorted(self._instructions.items()))
         return [instruction for lineno, instruction in sorted_instructions]
+
+    # Returns top successor.
+    def get_first_successor(self):
+        if self.successors:
+            return list(self.successors.values())[0]
+        return None
+
+    # Returns top predecessor.
+    def get_first_predecessor(self):
+        if self.predecessors:
+            return list(self.predecessors.values())[0]
+        return None
 
 
 class Block(BlockInterface):

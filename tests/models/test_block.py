@@ -9,7 +9,7 @@ import ast
 
 from src.globals import *
 from src.models.block import Block, FunctionBlock
-from src.models.instruction import Instruction
+from src.models.instruction import Instruction, InstructionType
 from src.generatecfg import CFGGenerator
 
 
@@ -20,6 +20,23 @@ class TestBlock(unittest.TestCase):
         self.block1 = Block()
         self.block2 = Block()
         self.block3 = Block()
+        self.block4 = Block()
+
+    def assertSuccessorsEqual(self, block, successors):
+        actual = set(block.successors.keys())
+        if successors is None:
+            self.assertFalse(actual)
+        else:
+            expected = [successor.label for successor in successors]
+            self.assertEqual(actual, set(expected))
+
+    def assertPredecessorsEqual(self, block, predecessors):
+        actual = set(block.predecessors.keys())
+        if predecessors is None:
+            self.assertFalse(actual)
+        else:
+            expected = [predecessor.label for predecessor in predecessors]
+            self.assertEqual(actual, set(expected))
 
     def test_labels(self):
         block_label1 = int(self.block1.label[1:])
@@ -59,10 +76,22 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(set(self.block1._instructions.keys()), set([1, 2]))
 
     def test_add_instruction_type(self):
-        self.skipTest('TODO: Need to complete')
+        self.block1.add_reference(lineno=1, variable='varA')
+        self.assertEqual(self.block1._instructions[1].referenced, set(['varA']))
+        self.assertEqual(self.block1._instructions[1].instruction_type, None)
+
+        self.block1.add_instruction_type(lineno=1, instruction_type=InstructionType.RETURN)
+        self.assertEqual(self.block1._instructions[1].instruction_type, InstructionType.RETURN)
 
     def test_add_instr_control(self):
-        self.skipTest('TODO: Need to complete')
+        self.block1.add_reference(lineno=1, variable='varA')
+        self.block1.add_reference(lineno=2, variable='varA')
+        self.assertEqual(self.block1._instructions[1].referenced, set(['varA']))
+        self.assertEqual(self.block1._instructions[2].referenced, set(['varA']))
+        self.assertEqual(self.block1._instructions[2].control, None)
+
+        self.block1.add_instr_control(lineno=2, control=1)
+        self.assertEqual(self.block1._instructions[2].control, 1)
 
     def test_method_add_instruction(self):
         instr = Instruction(lineno=1)
@@ -73,31 +102,168 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(set(self.block1._instructions.keys()), set([1]))
 
     def test_add_successor(self):
+        self.block1.add_successor(self.block1)
         self.block1.add_successor(self.block2)
         self.block1.add_successor(self.block3)
-        self.assertEqual(list(self.block1.successors), [self.block2.label, self.block3.label])
-        self.assertEqual(list(self.block2.predecessors), [self.block1.label])
-        self.assertEqual(list(self.block3.predecessors), [self.block1.label])
+        self.assertSuccessorsEqual(self.block1, [self.block2, self.block3])
+        self.assertPredecessorsEqual(self.block2, [self.block1])
+        self.assertPredecessorsEqual(self.block3, [self.block1])
 
     def test_add_predecessor(self):
+        self.block1.add_predecessor(self.block1)
         self.block1.add_predecessor(self.block2)
         self.block1.add_predecessor(self.block3)
-        self.assertEqual(list(self.block1.predecessors), [self.block2.label, self.block3.label])
-        self.assertEqual(list(self.block2.successors), [self.block1.label])
-        self.assertEqual(list(self.block3.successors), [self.block1.label])
+        self.assertPredecessorsEqual(self.block1, [self.block2, self.block3])
+        self.assertSuccessorsEqual(self.block2, [self.block1])
+        self.assertSuccessorsEqual(self.block3, [self.block1])
 
-    def test_add_successors(self):
-        self.skipTest('TODO: Need to complete')
+    def test_set_successors(self):
+        self.block1.add_successor(self.block1)
+        self.block1.add_successor(self.block2)
+        self.block1.add_successor(self.block3)
+        self.assertSuccessorsEqual(self.block1, [self.block2, self.block3])
+        self.assertPredecessorsEqual(self.block2, [self.block1])
+        self.assertPredecessorsEqual(self.block3, [self.block1])
+
+        self.block1.set_successors([self.block1, self.block2])
+        self.assertSuccessorsEqual(self.block1, [self.block2])
+        self.assertPredecessorsEqual(self.block2, [self.block1])
+        self.assertPredecessorsEqual(self.block3, None)
+
+        self.block1.set_successors([self.block3])
+        self.assertSuccessorsEqual(self.block1, [self.block3])
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, [self.block1])
+
+        self.block1.set_successors([])
+        self.assertSuccessorsEqual(self.block1, None)
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, None)
 
     def test_replace_successor(self):
-        self.skipTest('TODO: Need to complete')
+        self.block1.add_successor(self.block1)
+        self.block1.add_successor(self.block2)
+        self.assertSuccessorsEqual(self.block1, [self.block2])
+        self.assertPredecessorsEqual(self.block2, [self.block1])
+        self.assertPredecessorsEqual(self.block3, None)
+
+        self.block1.replace_successor(self.block2, self.block3)
+        self.assertSuccessorsEqual(self.block1, [self.block3])
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, [self.block1])
+
+        self.block1.replace_successor(self.block3, self.block1)
+        self.assertSuccessorsEqual(self.block1, None)
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, None)
+
+        # Ensure error when trying to replace non-existant successor.
+        with self.assertRaises(ValueError) as context:
+            self.block1.replace_successor(self.block3, self.block1)
+
+        # Before: Block 1 --> Block2 --> Block3
+        # After: Block1 --> Block3 and Block2 --> Block3
+        self.block1.add_successor(self.block2)
+        self.block2.add_successor(self.block3)
+        self.block1.replace_successor(self.block2, self.block3)
+        self.assertSuccessorsEqual(self.block1, [self.block3])
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertSuccessorsEqual(self.block2, [self.block3])
+        self.assertPredecessorsEqual(self.block3, [self.block1, self.block2])
 
     def test_replace_predecessor(self):
-        self.skipTest('TODO: Need to complete')
+        self.block1.add_predecessor(self.block1)
+        self.block1.add_predecessor(self.block2)
+        self.assertPredecessorsEqual(self.block1, [self.block2])
+        self.assertSuccessorsEqual(self.block2, [self.block1])
+        self.assertSuccessorsEqual(self.block3, None)
+
+        self.block1.replace_predecessor(self.block2, self.block3)
+        self.assertPredecessorsEqual(self.block1, [self.block3])
+        self.assertSuccessorsEqual(self.block2, None)
+        self.assertSuccessorsEqual(self.block3, [self.block1])
+
+        self.block1.replace_predecessor(self.block3, self.block1)
+        self.assertPredecessorsEqual(self.block1, None)
+        self.assertSuccessorsEqual(self.block2, None)
+        self.assertSuccessorsEqual(self.block3, None)
+
+        # Ensure error when trying to replace non-existant predecessor.
+        with self.assertRaises(ValueError) as context:
+            self.block1.replace_predecessor(self.block3, self.block1)
+
+        # Before: Block 1 <-- Block2 <-- Block3
+        # After: Block1 <-- Block3 and Block2 <-- Block3
+        self.block1.add_predecessor(self.block2)
+        self.block2.add_predecessor(self.block3)
+        self.block1.replace_predecessor(self.block2, self.block3)
+        self.assertPredecessorsEqual(self.block1, [self.block3])
+        self.assertSuccessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block2, [self.block3])
+        self.assertSuccessorsEqual(self.block3, [self.block1, self.block2])
+
+    def test_remove_successor(self):
+        self.block1.add_successor(self.block1)
+        self.block1.add_successor(self.block2)
+        self.block1.add_successor(self.block3)
+        self.assertSuccessorsEqual(self.block1, [self.block2, self.block3])
+        self.assertPredecessorsEqual(self.block2, [self.block1])
+        self.assertPredecessorsEqual(self.block3, [self.block1])
+
+        self.block1.remove_successor(self.block2)
+        self.assertSuccessorsEqual(self.block1, [self.block3])
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, [self.block1])
+
+        self.block1.remove_successor(self.block1)
+        self.assertSuccessorsEqual(self.block1, [self.block3])
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, [self.block1])
+
+        self.block1.remove_successor(self.block3)
+        self.assertSuccessorsEqual(self.block1, None)
+        self.assertPredecessorsEqual(self.block2, None)
+        self.assertPredecessorsEqual(self.block3, None)
+
+    def test_remove_predecessor(self):
+        self.block1.add_predecessor(self.block1)
+        self.block1.add_predecessor(self.block2)
+        self.block1.add_predecessor(self.block3)
+        self.assertPredecessorsEqual(self.block1, [self.block2, self.block3])
+        self.assertSuccessorsEqual(self.block2, [self.block1])
+        self.assertSuccessorsEqual(self.block3, [self.block1])
+
+        self.block1.remove_predecessor(self.block2)
+        self.assertPredecessorsEqual(self.block1, [self.block3])
+        self.assertSuccessorsEqual(self.block2, None)
+        self.assertSuccessorsEqual(self.block3, [self.block1])
+
+        self.block1.remove_predecessor(self.block1)
+        self.assertPredecessorsEqual(self.block1, [self.block3])
+        self.assertSuccessorsEqual(self.block2, None)
+        self.assertSuccessorsEqual(self.block3, [self.block1])
+
+        self.block1.remove_predecessor(self.block3)
+        self.assertPredecessorsEqual(self.block1, None)
+        self.assertSuccessorsEqual(self.block2, None)
+        self.assertSuccessorsEqual(self.block3, None)
 
     def test_destroy(self):
-        # Ensure that popitem does what I think.
-        self.skipTest('TODO: Need to complete')
+        self.block1.set_successors([self.block2, self.block3])
+        self.block2.add_successor(self.block4)
+        self.block3.add_successor(self.block4)
+
+        self.block3.destroy()
+        self.assertSuccessorsEqual(self.block1, [self.block2])
+        self.assertPredecessorsEqual(self.block3, None)
+        self.assertSuccessorsEqual(self.block3, None)
+        self.assertPredecessorsEqual(self.block4, [self.block2])
+
+        self.block2.destroy()
+        self.assertSuccessorsEqual(self.block1, None)
+        self.assertPredecessorsEqual(self.block3, None)
+        self.assertSuccessorsEqual(self.block3, None)
+        self.assertPredecessorsEqual(self.block4, None)
 
     def test_get_instruction(self):
         instr = Instruction(lineno=1)
@@ -123,6 +289,33 @@ class TestBlock(unittest.TestCase):
         instructions = self.block1.get_instructions()
         self.assertEqual(instructions[0].lineno, 1)
         self.assertEqual(instructions[1].lineno, 2)
+
+    def test_get_first_successor(self):
+        self.block1.set_successors([self.block2, self.block3])
+        successor = self.block1.get_first_successor()
+        self.assertEqual(successor, self.block2)
+
+        self.block1.remove_successor(successor)
+        successor = self.block1.get_first_successor()
+        self.assertEqual(successor, self.block3)
+
+        self.block1.remove_successor(successor)
+        successor = self.block1.get_first_successor()
+        self.assertEqual(successor, None)
+
+    def test_get_first_predecessor(self):
+        self.block1.add_predecessor(self.block2)
+        self.block1.add_predecessor(self.block3)
+        predecessor = self.block1.get_first_predecessor()
+        self.assertEqual(predecessor, self.block2)
+
+        self.block1.remove_predecessor(predecessor)
+        predecessor = self.block1.get_first_predecessor()
+        self.assertEqual(predecessor, self.block3)
+
+        self.block1.remove_predecessor(predecessor)
+        predecessor = self.block1.get_first_predecessor()
+        self.assertEqual(predecessor, None)
 
 
 # Tests FunctionBlock class.

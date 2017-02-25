@@ -89,6 +89,56 @@ class Slice(object):
 
         return slice_func
 
+    # Condenses successors into one block if they are equal.
+    def _condense_cfg_fold_redundant_branch(self, block):
+        successors = list(block.successors.values())
+
+        if len(successors) > 1 and successors[1:] == successors[:-1]:
+            for successor in successors[1:]:
+                successor.destroy()
+
+    # Removes empty block if block is empty and isn't a function block.
+    def _condense_cfg_remove_empty_block(self, block, func):
+        successor = block.get_first_successor()
+
+        # If block is empty and isn't a function block, remove block.
+        if (len(block.successors) == 1 and block != func and
+            len(block.get_instruction_linenos()) == 0):
+            # Remove predecessors.
+            while block.predecessors:
+                predecessor = block.get_first_predecessor()
+                predecessor.replace_successor(block, successor)
+
+            # Remove successor.
+            successor.remove_predecessor(block)
+            block.set_successors([])
+
+    # Combines block if single successor has one predecessor.
+    def _condense_cfg_combine_blocks(self, block):
+        successor = block.get_first_successor()
+
+        # If successor has one predecessor, merge blocks.
+        if len(block.successors) == 1 and len(successor.predecessors) == 1:
+            # Add instructions to current block.
+            for instruction in successor.get_instructions():
+                block.add_instruction(instruction)
+
+            # Change block's successors and successor's predecessors.
+            block.remove_successor(successor)
+            while successor.successors:
+                new_successor = successor.get_first_successor()
+                new_successor.replace_predecessor(successor, block)
+
+    # Skips successors if successor is empty and leads to a branch.
+    def _condense_cfg_hoist_branch(self, block):
+        successor = block.get_first_successor()
+
+        # If successor is empty and ends in a branch, skip successor.
+        if (len(block.successors) == 1 and len(successor.successors) > 1 and
+            len(successor.get_instruction_linenos()) == 0):
+            successors = successor.successors.values()
+            block.set_successors(successors)
+
     # Runs through one pass of condensing a FunctionBlock representing a CFG.
     def _condense_cfg_helper(self, func):
         visited = set()
@@ -98,48 +148,11 @@ class Slice(object):
             block = queue.pop()
             visited.add(block.label)
 
-            # If successors are equal condense into one block.
-            if len(block.successors) > 1:
-                successors = list(block.successors.values())
-                if successors[1:] == successors[:-1]:
-                    for successor in successors[1:]:
-                        successor.destroy()
-
-            if len(block.successors) == 1:
-                successor = list(block.successors.values())[0]
-
-                # If block is empty, remove block and block isn't function block.
-                if len(block.get_instruction_linenos()) == 0 and block != func:
-                    while block.predecessors.values():
-                        _, predecessor = block.predecessors.popitem()
-                        predecessor.replace_successor(block, successor)
-                        successor.add_predecessor(predecessor)
-                    successor.predecessors.pop(block.label)
-                    block.set_successors([])
-
-            if len(block.successors) == 1:
-                successor = list(block.successors.values())[0]
-
-                # If successor has one predecessor, merge blocks.
-                if len(successor.predecessors) == 1:
-                    # Add instructions to current block.
-                    for instruction in successor.get_instructions():
-                        block.add_instruction(instruction)
-
-                    # Change current blocks successors.
-                    block.set_successors(successor.successors.values())
-                    while successor.successors:
-                        _, new_successor = successor.successors.popitem()
-                        new_successor.replace_predecessor(successor, block)
-
-            if len(block.successors) == 1:
-                successor = list(block.successors.values())[0]
-
-                # If successor is empty and ends in conditional, remove successor.
-                if (len(successor.get_instruction_linenos()) == 0 and
-                    len(successor.successors) > 1):
-                    successors = successor.successors.values()
-                    block.set_successors(successors)
+            # Run optimization functions on the block.
+            self._condense_cfg_fold_redundant_branch(block)
+            self._condense_cfg_remove_empty_block(block, func)
+            self._condense_cfg_combine_blocks(block)
+            self._condense_cfg_hoist_branch(block)
 
             # Add successors to queue if not visited.
             for label, successor in block.successors.items():
