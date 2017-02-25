@@ -126,6 +126,11 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
         self.assertEqual(cur_instr_info.gen, {'a': set([('funcA', 4)])})
         self.assertEqual(cur_instr_info.kill, {'a': set([('L4', 9)])})
 
+        # Line 5.
+        cur_instr_info = info.get_instruction_info(5)
+        self.assertFalse(cur_instr_info.gen)
+        self.assertFalse(cur_instr_info.kill)
+
         # Line 6.
         cur_instr_info = info.get_instruction_info(6)
         self.assertEqual(cur_instr_info.gen, {'i': set([('L2', 6)])})
@@ -230,6 +235,15 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
         self.assertEqual(cur_instr_info.out_node, {'i': set([('funcA', 3)]),
                                                    'j': set([('funcA', 3)]),
                                                    'a': set([('funcA', 4)])})
+
+        # Line 5.
+        cur_instr_info = info.get_instruction_info(5)
+        self.assertEqual(cur_instr_info.in_node, {'i': set([('funcA', 3), ('L5', 10)]),
+                                                  'j': set([('funcA', 3), ('L2', 7)]),
+                                                  'a': set([('funcA', 4), ('L4', 9)])})
+        self.assertEqual(cur_instr_info.out_node, {'i': set([('funcA', 3), ('L5', 10)]),
+                                                   'j': set([('funcA', 3), ('L2', 7)]),
+                                                   'a': set([('funcA', 4), ('L4', 9)])})
 
         # Line 6.
         cur_instr_info = info.get_instruction_info(6)

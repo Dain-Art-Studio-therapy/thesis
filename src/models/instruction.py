@@ -26,6 +26,8 @@ class Instruction(object):
         Variables defined in the block.
     lineno: int
         Line number.
+    control: int
+        Line number controling this instruction.
     """
 
     def __init__(self, lineno):
@@ -33,9 +35,12 @@ class Instruction(object):
         self.lineno = lineno
         self.referenced = set()
         self.defined = set()
+        self.control = None
 
     def __str__(self):
         string = '#%d | ' %self.lineno
+        if self.control:
+            string += '(#%d) ' %(self.control)
         if self.referenced:
             string += 'REF(%s) ' %(', '.join(self.referenced))
         if self.defined:
@@ -43,3 +48,15 @@ class Instruction(object):
         if self.instruction_type:
             string += '- %s' %(self.instruction_type.name.lower())
         return string
+
+    def __eq__(self, other):
+        if not other or not isinstance(other, self.__class__):
+            return False
+
+        return (self.instruction_type == other.instruction_type and
+                self.lineno == other.lineno and
+                self.referenced == other.referenced and
+                self.defined == other.defined)
+
+    def __ne__(self, other):
+        return not self == other

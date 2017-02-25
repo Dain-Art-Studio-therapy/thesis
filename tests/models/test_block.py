@@ -58,8 +58,19 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(len(self.block1.get_instructions()), 2)
         self.assertEqual(set(self.block1._instructions.keys()), set([1, 2]))
 
-    def test_method_add_instruction(self):
+    def test_add_instruction_type(self):
         self.skipTest('TODO: Need to complete')
+
+    def test_add_instr_control(self):
+        self.skipTest('TODO: Need to complete')
+
+    def test_method_add_instruction(self):
+        instr = Instruction(lineno=1)
+        instr.referenced.add('varA')
+        instr.defined.add('varB')
+        self.block1.add_instruction(instr)
+        self.assertEqual(len(self.block1.get_instructions()), 1)
+        self.assertEqual(set(self.block1._instructions.keys()), set([1]))
 
     def test_add_successor(self):
         self.block1.add_successor(self.block2)
@@ -69,13 +80,41 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(list(self.block3.predecessors), [self.block1.label])
 
     def test_add_predecessor(self):
+        self.block1.add_predecessor(self.block2)
+        self.block1.add_predecessor(self.block3)
+        self.assertEqual(list(self.block1.predecessors), [self.block2.label, self.block3.label])
+        self.assertEqual(list(self.block2.successors), [self.block1.label])
+        self.assertEqual(list(self.block3.successors), [self.block1.label])
+
+    def test_add_successors(self):
+        self.skipTest('TODO: Need to complete')
+
+    def test_replace_successor(self):
+        self.skipTest('TODO: Need to complete')
+
+    def test_replace_predecessor(self):
+        self.skipTest('TODO: Need to complete')
+
+    def test_destroy(self):
+        # Ensure that popitem does what I think.
         self.skipTest('TODO: Need to complete')
 
     def test_get_instruction(self):
-        self.skipTest('TODO: Need to complete')
+        instr = Instruction(lineno=1)
+        instr.referenced.add('varA')
+        instr.defined.add('varB')
+        self.block1.add_instruction(instr)
+
+        result = self.block1.get_instruction(lineno=1)
+        self.assertEqual(result.lineno, instr.lineno)
+        self.assertEqual(result.referenced, instr.referenced)
+        self.assertEqual(result.defined, instr.defined)
+        self.assertFalse(self.block1.get_instruction(lineno=2))
 
     def test_get_instruction_linenos(self):
-        self.skipTest('TODO: Need to complete')
+        self.block1.add_definition(lineno=1, variable='varB')
+        self.block1.add_definition(lineno=2, variable='varA')
+        self.assertEqual(self.block1.get_instruction_linenos(), set([1, 2]))
 
     def test_get_instructions(self):
         self.block1.add_reference(lineno=2, variable='varA')

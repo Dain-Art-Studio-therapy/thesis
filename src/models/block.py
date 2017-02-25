@@ -25,10 +25,22 @@ class BlockList(object):
 
     def __str__(self):
         string = ''
-        for block in self._block_list:
-            for sorted_block in block.get_sorted_blocks():
-                string += '%s\n' %str(sorted_block)
+        for func_block in self._block_list:
+            string += '%s\n' %str(func_block)
         return string
+
+    def __eq__(self, other):
+        if (not other or not isinstance(other, self.__class__) or
+            not self.get_num_funcs() == other.get_num_funcs()):
+            return False
+
+        for func_block in self.get_funcs():
+            if func_block != other.get_func(func_block.label):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
 
     # Adds block to block list.
     def add(self, block):
@@ -90,9 +102,24 @@ class BlockInterface(ABC):
         return string
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
-          return self.label == other.label
-        return False
+        if not other or not isinstance(other, self.__class__):
+            return False
+
+        # Check successors and predecessors and number of instructions.
+        if (self.label != other.label or
+            self.successors.keys() != other.successors.keys() or
+            self.predecessors.keys() != other.predecessors.keys() or
+            self.get_instruction_linenos() != other.get_instruction_linenos()):
+            return False
+
+        # Check instructions.
+        for instruction in self.get_instructions():
+            if other.get_instruction(instruction.lineno) != instruction:
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
 
     # Getter method for label. Sets label if it hasn't been set.
     @property
@@ -127,18 +154,66 @@ class BlockInterface(ABC):
         instruction = self._get_instruction(lineno)
         instruction.instruction_type = instruction_type
 
+    # Adds control at the line number.
+    def add_instr_control(self, lineno, control):
+        instruction = self._get_instruction(lineno)
+        instruction.control = control
+
     # Adds instruction to instruction list.
     def add_instruction(self, instruction):
         self._instructions[instruction.lineno] = copy.deepcopy(instruction)
 
     # Adds a block as a successor and this block as its predecessor.
     def add_successor(self, block):
-        self.successors[block.label] = block
-        block.predecessors[self.label] = self
+        if block != self:
+            self.successors[block.label] = block
+            block.predecessors[self.label] = self
 
     # Adds a block as a predecessor and this block as its successor.
     def add_predecessor(self, block):
         block.add_successor(self)
+
+    # Sets successsors list to the provided successors list.
+    def set_successors(self, successors):
+        # Remove successors reference to this block.
+        for successor in self.successors.values():
+            if self.label in successor.predecessors:
+                successor.predecessors.pop(self.label)
+
+        # Set new successors.
+        self.successors = collections.OrderedDict()
+        for successor in successors:
+            self.add_successor(successor)
+
+    # Returns new OrderedDict with block replaced.
+    def _replace_block(self, blocklist, cur_block, new_block):
+        new_blocklist = [(new_block.label, new_block)
+                         if label == cur_block.label else (label, block)
+                         for label, block in blocklist.items()]
+        return collections.OrderedDict(new_blocklist)
+
+    # Replaces a successor block with the provided block.
+    def replace_successor(self, cur_block, new_block):
+        if self != new_block:
+            self.successors = self._replace_block(self.successors, cur_block, new_block)
+        else:
+            self.successors.pop(cur_block.label)
+
+    # Replaces a predecessor block with the provided block.
+    def replace_predecessor(self, cur_block, new_block):
+        if self != new_block:
+            self.predecessors = self._replace_block(self.predecessors, cur_block, new_block)
+        else:
+            self.successors.pop(cur_block.label)
+
+    # Destroys the block by removing itself from successors and predecessors.
+    def destroy(self):
+        # Remove successor from predecessors and successors
+        for predecessor in self.predecessors.values():
+            predecessor.successors.pop(self.label)
+        for successor in self.successors.values():
+            successor.predecessors.pop(self.label)
+        del self
 
     # Returns instruction at line number. Returns None if no instruction.
     def get_instruction(self, lineno):
@@ -176,6 +251,25 @@ class FunctionBlock(BlockInterface):
 
     def __init__(self, label):
         super(self.__class__, self).__init__(label)
+
+    def __str__(self):
+        string = '%s\n' %super(FunctionBlock, self).__str__()
+        for sorted_block in self.get_sorted_blocks()[1:]:
+            string += '%s\n' %str(sorted_block)
+        return string
+
+    def __eq__(self, other):
+        # Check equality for the function block.
+        if not super(FunctionBlock, self).__eq__(other):
+            return False
+
+        # Check equality for all blocks in the function.
+        self_blocks = self.get_sorted_blocks()[1:]
+        other_blocks = other.get_sorted_blocks()[1:]
+        for self_block, other_block in zip(self_blocks, other_blocks):
+            if self_block != other_block:
+                return False
+        return True
 
     # Gets topologically sorted blocks.
     def get_sorted_blocks(self):

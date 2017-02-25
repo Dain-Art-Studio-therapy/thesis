@@ -34,12 +34,22 @@ class CFGGenerator(ast.NodeVisitor):
     def _init_variables(self):
         self.block_list = BlockList()
         self.current_block = None
+        self.current_control = None
 
     # Generates CFG.
     def generate(self, node):
         self._init_variables()
         self.visit(node)
         return self.block_list
+
+    # Adds a variable to the current block.
+    def _add_variable(self, lineno, variable, action):
+        if action == TypeVariable.LOAD:
+            self.current_block.add_reference(lineno, variable)
+        if action == TypeVariable.STORE:
+            self.current_block.add_definition(lineno, variable)
+        if self.current_control:
+            self.current_block.add_instr_control(lineno, self.current_control)
 
     # Visits element within node.
     def _visit_item(self, value):
@@ -116,7 +126,7 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_Print(self, node):
         # Add print to referenced variables for Python 2 & 3 compatability.
-        self.current_block.add_reference(node.lineno, variable='print')
+        self._add_variable(node.lineno, 'print', TypeVariable.LOAD)
         self.generic_visit(node)
 
     # input: For(expr target, expr iter, stmt* body, stmt* orelse)
@@ -126,6 +136,7 @@ class CFGGenerator(ast.NodeVisitor):
         guard_block = Block()
         start_body_block = Block()
         after_block = Block()
+        prev_control = self.current_control
 
         # Add successors/predcessors.
         start_block.add_successor(guard_block)
@@ -136,6 +147,7 @@ class CFGGenerator(ast.NodeVisitor):
         self.current_block = guard_block
         self._visit_item(node.target)
         self._visit_item(node.iter)
+        self.current_control = node.target.lineno
 
         # Add body to body block.
         self.current_block = start_body_block
@@ -146,6 +158,7 @@ class CFGGenerator(ast.NodeVisitor):
         # TODO(ngarg): Figure out orelse in For.
         # self.generic_visit(node)
 
+        self.current_control = prev_control
         self.current_block = after_block
 
     # input: While(expr test, stmt* body, stmt* orelse)
@@ -155,6 +168,7 @@ class CFGGenerator(ast.NodeVisitor):
         guard_block = Block()
         start_body_block = Block()
         after_block = Block()
+        prev_control = self.current_control
 
         # Add successors/predcessors.
         start_block.add_successor(guard_block)
@@ -164,6 +178,7 @@ class CFGGenerator(ast.NodeVisitor):
         # Add test to current block.
         self.current_block = guard_block
         self._visit_item(node.test)
+        self.current_control = node.test.lineno
 
         # Add body to body block.
         self.current_block = start_body_block
@@ -174,6 +189,7 @@ class CFGGenerator(ast.NodeVisitor):
         # TODO(ngarg): Figure out orelse in For.
         # self.generic_visit(node)
 
+        self.current_control = prev_control
         self.current_block = after_block
 
     # input: If(expr test, stmt* body, stmt* orelse)
@@ -182,12 +198,14 @@ class CFGGenerator(ast.NodeVisitor):
         start_block = self.current_block
         start_if_block = Block()
         after_block = Block()
+        prev_control = self.current_control
 
         # Add successors/predecessors.
         start_block.add_successor(start_if_block)
 
         # Add test to current block.
         self._visit_item(node.test)
+        self.current_control = node.test.lineno
 
         # Add body to if block.
         self.current_block = start_if_block
@@ -200,12 +218,20 @@ class CFGGenerator(ast.NodeVisitor):
             start_else_block = Block()
             start_block.add_successor(start_else_block)
             self.current_block = start_else_block
+
+            # If else block then add instruction 'else' as a placeholder.
+            if not isinstance(node.orelse[0], _ast.If):
+                lineno = node.orelse[0].lineno - 1
+                self._add_variable(lineno, 'else', TypeVariable.LOAD)
+                self.current_control = (lineno)
+
             self._visit_item(node.orelse)
             end_if_block = self.current_block
             end_if_block.add_successor(after_block)
         else:
             start_block.add_successor(after_block)
 
+        self.current_control = prev_control
         self.current_block = after_block
 
     # # With(expr context_expr, expr? optional_vars, stmt* body)
@@ -359,10 +385,7 @@ class CFGGenerator(ast.NodeVisitor):
     # output: str var
     def visit_Name(self, node):
         action = self._visit_item(node.ctx)
-        if action == TypeVariable.LOAD:
-            self.current_block.add_reference(node.lineno, variable=node.id)
-        if action == TypeVariable.STORE:
-            self.current_block.add_definition(node.lineno, variable=node.id)
+        self._add_variable(node.lineno, node.id, action)
 
     # # List(expr* elts, expr_context ctx)
     # def visit_List(self, node):

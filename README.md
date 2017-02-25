@@ -23,7 +23,14 @@
 
 1.  Gen set in a block with same variable assigned twice - should it link to the second assignment, and have first assignment in kill set?
 2. Should I make if/elif/else have 1 exit block?
-3. Can I have your code as a "good" comparison?
+3. *** Should parameters be "defined" not "referenced"?
+
+
+### Test Cases to Add
+
+1. `test_slice.py`: Broken/uncompilable code
+2. `block.py`: Equality `BlockList` and `Block` and `FunctionBlock`.
+3. `instruction.py`: Equality `Instruction`.
 
 
 ### Features to Add in Type Checker
@@ -35,6 +42,7 @@
       `print x`
 4. Check for unintialized variables.
 5. if/else both have return instead of if (return) [code]
+6. Poorly tabbed code (or incorrectly tabbed code)
 
 
 ### Future Considerations
