@@ -2,4 +2,12 @@
 *.pyc
 */*.pyc
 */*/*.pyc
+
+# Coverage report
 .coverage
+
+# Any 101 student code.
+codesample/python2/hw4_cast_1.py
+playspace/sample_code/
+playspace/sample_code/*/*/*.py
+
