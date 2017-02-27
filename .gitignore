@@ -13,3 +13,5 @@ codesample/student_solution
 playspace/sample_code/
 playspace/sample_code/*/*/*.py
 
+# Temporary output files.
+output*

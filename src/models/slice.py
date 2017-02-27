@@ -162,6 +162,7 @@ class Slice(object):
 
     # Condenses a FunctionBlock representing a CFG.
     def condense_cfg(self, func):
+        func = copy.deepcopy(func)
         func_copy = None
         while func != func_copy:
             func_copy = copy.deepcopy(func)
@@ -176,7 +177,59 @@ class Slice(object):
         slice_func = self.condense_cfg(slice_func)
         return slice_func
 
-    def print_slice_last_statement(self,):
+    def get_average_slice_complexity(self, debug=False):
+        sorted_blocks = self.func.get_sorted_blocks()
+        num_instrs = 0.0
+        complexity = 0.0
+
+        for block in sorted_blocks:
+            for lineno in block.get_instruction_linenos():
+                slice_cfg = self.get_slice(lineno)
+                slice_complexity = slice_cfg.get_cyclomatic_complexity()
+                if debug:
+                    print("\t\t\t%d  |  %d" %(slice_complexity, lineno))
+                complexity += slice_complexity
+                num_instrs += 1.0
+        return float(complexity) / float(num_instrs)
+
+    def get_average_slice_possible_remove(self, debug=False):
+        sorted_blocks = self.func.get_sorted_blocks()
+        num_instrs = 0.0
+        complexity = 0.0
+        prev_complexity = 0.0
+        DIFF = 1
+
+        for block in sorted_blocks:
+            for lineno in block.get_instruction_linenos():
+                slice_cfg = self.get_slice(lineno)
+                slice_complexity = slice_cfg.get_cyclomatic_complexity()
+                if (prev_complexity - slice_complexity) > DIFF:
+                    print("\t\t\t %d | %d %d" %(lineno, prev_complexity, slice_complexity))
+                prev_complexity = slice_complexity
+                if debug:
+                    print("\t\t\t%d  |  %d" %(slice_complexity, lineno))
+                complexity += slice_complexity
+                num_instrs += 1.0
+        return float(complexity) / float(num_instrs)
+
+
+    def get_average_slice_complexity_with_linenos(self, debug=False):
+        sorted_blocks = self.func.get_sorted_blocks()
+        line_number = 1.0
+        complexity = 0.0
+
+        for block in sorted_blocks:
+            for lineno in block.get_instruction_linenos():
+                slice_cfg = self.get_slice(lineno)
+                slice_complexity = slice_cfg.get_cyclomatic_complexity()
+                if debug:
+                    print("\t\t\t%d  %d  |  %d" %(
+                        slice_complexity, slice_complexity * line_number, lineno))
+                complexity += slice_complexity * line_number
+                line_number += 1.0
+        return float(complexity) / float(line_number)
+
+    def get_slice_last_statement(self):
         # Get last statement.
         sorted_blocks = self.func.get_sorted_blocks()
         instr = None
@@ -189,4 +242,4 @@ class Slice(object):
 
         # Get slice from instruction.
         slice_cfg = self.get_slice(instr.lineno)
-        print(slice_cfg)
+        return slice_cfg
