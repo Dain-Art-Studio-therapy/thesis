@@ -81,9 +81,9 @@ class TestSlice(unittest.TestCase):
         func = cfg.get_func('funcA')
         return Slice(func)
 
-    def _get_instrs_slice(self, source, lineno, include_control=True):
+    def _get_instrs_slice(self, source, lineno, **kwargs):
         slicemethod = self._get_slice_class(source)
-        instrs = slicemethod._get_instructions_in_slice(lineno, include_control)
+        instrs = slicemethod._get_instructions_in_slice(lineno, **kwargs)
         return instrs
 
     def _get_cfg_slice(self, source, lineno):
@@ -379,10 +379,18 @@ class TestSliceLoops(TestSlice):
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([2, 10]))
 
+        # Test without including extra control.
+        instrs = self._get_instrs_slice(source, 10, include_control=False)
+        self.assertEqual(instrs, set([2, 10]))
+
     # Test _get_instructions_in_slice with line 10 as 'print(wpixels)'.
     def test_get_instructions_in_slice_wpixels(self):
         source = self._get_conditional_source('wpixels')
         instrs = self._get_instrs_slice(source, 10)
+        self.assertEqual(instrs, set([4, 5, 9, 10]))
+
+        # Test without including extra control.
+        instrs = self._get_instrs_slice(source, 10, include_control=False)
         self.assertEqual(instrs, set([4, 5, 9, 10]))
 
     # Test _get_instructions_in_slice with line 10 as 'print(hpixels)'.
@@ -391,15 +399,17 @@ class TestSliceLoops(TestSlice):
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([3, 5, 6, 7, 10]))
 
+        # Test without including extra control.
+        instrs = self._get_instrs_slice(source, 10, include_control=False)
+        self.assertEqual(instrs, set([3, 5, 6, 7, 10]))
+
     # Test _get_instructions_in_slice with line 8 as 'new_var = 0'.
     def test_get_instructions_in_slice_new_var_line8(self):
         source = self._get_conditional_source('"NA"')
         instrs = self._get_instrs_slice(source, 8)
         self.assertEqual(instrs, set([5, 6, 8]))
 
-    # Test _get_instructions_in_slice with line 8 as 'new_var = 0'.
-    def test_get_instructions_in_slice_new_var_line8_no_control(self):
-        source = self._get_conditional_source('"NA"')
+        # Test without including extra control.
         instrs = self._get_instrs_slice(source, 8, include_control=False)
         self.assertEqual(instrs, set([8]))
 
@@ -409,12 +419,9 @@ class TestSliceLoops(TestSlice):
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([5, 6, 8, 10]))
 
-    # Test _get_instructions_in_slice with line 10 as 'print(new_var)'.
-    def test_get_instructions_in_slice_new_var_line10_no_control(self):
-        self.skipTest('TODO: Test out of scope variable')
-        source = self._get_conditional_source('new_var')
+        # Test without including extra control.
         instrs = self._get_instrs_slice(source, 10, include_control=False)
-        self.assertEqual(instrs, set([5, 6, 8, 10]))
+        self.assertEqual(instrs, set([8, 10]))
 
     # Test get_slice with line 10 as 'print(a)'.
     def test_get_slice_a(self):

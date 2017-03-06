@@ -64,17 +64,21 @@ class Slice(object):
         return variables
 
     # Gets set of line numbers in a slice.
-    def _get_instructions_in_slice(self, start_lineno, include_control=True,
-                                   remove_vars=None):
+    def _get_instructions_in_slice(self, start_lineno, **kwargs):
         visited = set([start_lineno])
         queue = [start_lineno]
+        min_lineno = start_lineno
+
+        # Parse keyword arguments.
+        include_control = (kwargs['include_control']
+                          if 'include_control' in kwargs else True)
+        remove_vars = kwargs['remove_vars'] if 'remove_vars' in kwargs else None
 
         while queue:
             # Get instruction and instruction info at line number.
             lineno = queue.pop()
             instr = self.info.get_instruction(lineno)
             instr_info = self.info.get_instruction_info(lineno)
-            add_control = False
 
             # Adds instruction (as line number) to slice.
             visited.add(lineno)
@@ -86,13 +90,12 @@ class Slice(object):
                     for block_label, lineno in instr_info.in_node[var]:
                         if lineno not in visited:
                             queue.append(lineno)
-                        # Add control if a line before control is referenced.
-                        if instr.control and instr.control > lineno:
-                            add_control = True
+                            min_lineno = min(lineno, min_lineno)
 
-            # Trace line numbers of control variables.
-            if ((include_control or add_control) and
-                instr.control and instr.control not in visited):
+            # Trace line numbers of control variables if include_control is True
+            # or a line before control is referenced.
+            if (instr.control and (instr.control not in visited) and
+                (include_control or instr.control > min_lineno)):
                 queue.append(instr.control)
 
         # Returns set of line numbers instructions.
@@ -228,7 +231,7 @@ class Slice(object):
         slice_map = {}
         for block in self.sorted_blocks:
             for lineno in block.get_instruction_linenos():
-                instrs = frozenset(self._get_instructions_in_slice(lineno, kwargs))
+                instrs = frozenset(self._get_instructions_in_slice(lineno, **kwargs))
                 if instrs:
                     # Use cache of slices of instructions to CFGs.
                     if instrs not in self._SLICE_CACHE:
