@@ -93,16 +93,19 @@ class CFGGenerator(ast.NodeVisitor):
     #                          stmt* body, expr* decorator_list)
     # output: None
     def visit_FunctionDef(self, node):
+        prev_block = self.current_block
         self.current_block = FunctionBlock(node.name)
         self.block_list.add(self.current_block)
         self.generic_visit(node)
+        self.current_block = prev_block
 
     # # ClassDef(identifier name, expr* bases, stmt* body, expr* decorator_list)
     # def visit_ClassDef(self, node):
     #     print('visit_ClassDef')
     #     self.generic_visit(node)
 
-    # Return(expr? value)
+    # input: Return(expr? value)
+    # output: None
     def visit_Return(self, node):
         self.current_block.add_instruction_type(node.lineno, InstructionType.RETURN)
         self.generic_visit(node)
@@ -125,12 +128,12 @@ class CFGGenerator(ast.NodeVisitor):
     # input: Print(expr? dest, expr* values, bool nl)
     # output: None
     def visit_Print(self, node):
-        # Add print to referenced variables for Python 2 & 3 compatability.
+        # Compatible with Python 2 print.
         self._add_variable(node.lineno, 'print', TypeVariable.LOAD)
         self.generic_visit(node)
 
     # input: For(expr target, expr iter, stmt* body, stmt* orelse)
-    # output: Block
+    # output: None
     def visit_For(self, node):
         start_block = self.current_block
         guard_block = Block()
@@ -162,7 +165,7 @@ class CFGGenerator(ast.NodeVisitor):
         self.current_block = after_block
 
     # input: While(expr test, stmt* body, stmt* orelse)
-    # output: Block
+    # output: None
     def visit_While(self, node):
         start_block = self.current_block
         guard_block = Block()
@@ -382,10 +385,16 @@ class CFGGenerator(ast.NodeVisitor):
     #     self.generic_visit(node)
 
     # input: Name(identifier id, expr_context ctx)
-    # output: str var
+    # output: None
     def visit_Name(self, node):
         action = self._visit_item(node.ctx)
         self._add_variable(node.lineno, node.id, action)
+
+    # input: arg = (identifier arg, expr? annotation)
+    # output: None
+    def visit_arg(self, node):
+        # Compatible with Python 3 arguments.
+        self._add_variable(node.lineno, node.arg, TypeVariable.STORE)
 
     # # List(expr* elts, expr_context ctx)
     # def visit_List(self, node):
@@ -395,6 +404,13 @@ class CFGGenerator(ast.NodeVisitor):
     # # Tuple(expr* elts, expr_context ctx)
     # def visit_Tuple(self, node):
     #     print('visit_Tuple')
+    #     self.generic_visit(node)
+
+    # # arguments(expr* args, identifier? vararg,
+    # #           identifier? kwarg, expr* defaults)
+    # def visit_arguments(self, node):
+    #     # Compatible with Python 3 arguments.
+    #     print('visit_arguments')
     #     self.generic_visit(node)
 
     # input: Load()
@@ -422,9 +438,10 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_AugStore')
     #     self.generic_visit(node)
 
-    # Param()
+    # input: Param()
+    # output: TypeVariable
     def visit_Param(self, node):
-        return TypeVariable.LOAD
+        return TypeVariable.STORE
 
     # # Ellipsis
     # def visit_Ellipsis(self, node):

@@ -68,22 +68,19 @@ def main():
     # Prints slice calculated on the return statement.
     total_complexity = 0
     total_reduced_compexity = 0
-    total_avg_complexity = 0
 
     for func_block in cfg.get_funcs():
-        # Testing to see if it works.
         func_slice = Slice(func_block)
 
         func_complexity = func_block.get_cyclomatic_complexity()
         func_reduced_complexity = func_slice.condense_cfg(func_block).get_cyclomatic_complexity()
-        func_avg_complexity = func_slice.get_average_slice_possible_remove()
-        print('\t%s - %d  |  %d  |  %.3f' %(func_block.label, func_complexity, func_reduced_complexity, func_avg_complexity))
+        func_slice.get_suggestions()
 
         total_complexity += func_complexity
         total_reduced_compexity += func_reduced_complexity
-        total_avg_complexity += func_avg_complexity
+        print('\t%s - %d  |  %d' %(func_block.label, func_complexity, func_reduced_complexity))
 
-    print('    TOTAL: %d  |  %d  |  %.3f' %(total_complexity, total_reduced_compexity, total_avg_complexity))
+    print('    TOTAL: %d  |  %d' %(total_complexity, total_reduced_compexity))
 
 
 if __name__ == '__main__':

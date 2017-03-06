@@ -68,7 +68,16 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertInstrEqual(block.get_instruction(4), referenced=['x'], instruction_type=InstructionType.RETURN)
 
     def test_parameters_definitions(self):
-        self.skipTest('TODO: Add test ensuring function parameters are definitions')
+        source = ('def funcA(y):\n'
+                  '    x = 5\n'
+                  '    return x')
+        cfg = self._generate_cfg(source)
+        block = cfg.get_func('funcA')
+
+        self.assertEqual(block.label, 'funcA')
+        self.assertInstrEqual(block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(block.get_instruction(2), defined=['x'])
+        self.assertInstrEqual(block.get_instruction(3), referenced=['x'], instruction_type=InstructionType.RETURN)
 
     def test_assignment_simple(self):
         source = ('string0 = "hi"\n'

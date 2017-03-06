@@ -1,4 +1,4 @@
-HW_NUM=hw4
+HW_NUM=hw5
 
 # Runs student code.
 FILES=codesample/student_solution/$HW_NUM/*/cast.py

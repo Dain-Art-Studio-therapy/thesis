@@ -21,12 +21,12 @@
 # Extended TODO List
 ### Questions
 
-1. ** Should parameters be "defined" not "referenced"?
-2. Should I make if/elif/else have 1 exit block?
+1. Should I make if/elif/else have 1 exit block?
       - Pro: Lower cyclomatic complexity of if/elif/else vs 2 if/else
       - Con: More complicated
-3. Function inside function breaks code (student hw 4 #31). Can I ignore?
-4. Should slice include control if there is ntohing above control in slice?
+2. Function inside function breaks code (student hw 4 #31). Can I ignore?
+3. If a variable is out of scope, should it perform "correctly"?
+      - Ex. _get_instructions_in_slice --> var init inside loop, print outside
 
 
 ### Test Cases to Add
@@ -41,8 +41,10 @@
       - while loop example
       - `return` in middle of function (ex. if [case]: return False)
 3. `generate_cfg.py`:
-      - params in functions
+      - iterating through functions in a class
       - `return` in middle of function (ex. if [case]: return False)
+4. `dataflowanalysis.py`
+      - params in function header
 
 
 ### Features to Add in Type Checker

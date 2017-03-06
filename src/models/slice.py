@@ -4,11 +4,33 @@
 # Python Version: 3.5
 
 
+from numpy import array, diff, where, split
 import copy
 
 from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
 from src.models.dataflowanalysis import ReachingDefinitionsAnalysis
+
+
+class Suggestion(object):
+    """
+    Represents a suggestion to be made to the user.
+    """
+
+    def __init__(self, message, start_lineno, end_lineno=None):
+        self.message = message
+        self.start_lineno = start_lineno
+        self.end_lineno = end_lineno if end_lineno else start_lineno
+
+    def __lt__(self, other):
+        if self.start_lineno == other.start_lineno:
+            return self.end_lineno < other.end_lineno
+        return self.start_lineno < other.start_lineno
+
+    def __str__(self):
+        if self.end_lineno == self.start_lineno:
+            return '{} : {}'.format(self.start_lineno, self.message)
+        return '{}-{} : {}'.format(self.start_lineno, self.end_lineno, self.message)
 
 
 class Slice(object):
@@ -21,13 +43,29 @@ class Slice(object):
         FunctionBlockInformation containg ReachingDefinitions for current block.
     """
 
+    MIN_DIFF_COMPLEXITY = 3
+    MAX_DIFF_FOR_GROUPING = 2
+    MIN_LINES_FOR_SUGGESTION = 3
+
     def __init__(self, func):
         self.func = func
         analysismethod = ReachingDefinitionsAnalysis()
         self.info = analysismethod.analyze(self.func)
+        self.sorted_blocks = self.func.get_sorted_blocks()
+        self._SLICE_CACHE = {}
+
+    # Gets the variables in a slice.
+    def _get_variables_in_slice(self):
+        variables = set()
+        for block in self.sorted_blocks:
+            for instr in block.get_instructions():
+                for var in instr.defined:
+                    variables.add(var)
+        return variables
 
     # Gets set of line numbers in a slice.
-    def _get_instructions_in_slice(self, start_lineno):
+    def _get_instructions_in_slice(self, start_lineno, include_control=True,
+                                   remove_vars=None):
         visited = set([start_lineno])
         queue = [start_lineno]
 
@@ -36,6 +74,7 @@ class Slice(object):
             lineno = queue.pop()
             instr = self.info.get_instruction(lineno)
             instr_info = self.info.get_instruction_info(lineno)
+            add_control = False
 
             # Adds instruction (as line number) to slice.
             visited.add(lineno)
@@ -47,9 +86,13 @@ class Slice(object):
                     for block_label, lineno in instr_info.in_node[var]:
                         if lineno not in visited:
                             queue.append(lineno)
+                        # Add control if a line before control is referenced.
+                        if instr.control and instr.control > lineno:
+                            add_control = True
 
             # Trace line numbers of control variables.
-            if instr.control and instr.control not in visited:
+            if ((include_control or add_control) and
+                instr.control and instr.control not in visited):
                 queue.append(instr.control)
 
         # Returns set of line numbers instructions.
@@ -57,11 +100,11 @@ class Slice(object):
 
     # Creates a FunctionBlock representing a CFG from a
     # set of instructions in sorted blocks.
-    def _generate_cfg_slice(self, sorted_blocks, slice_instrs):
+    def _generate_cfg_slice(self, slice_instrs):
         block_map = {} # function block number : slice block number
         slice_func = FunctionBlock(self.func.label)
 
-        for block in sorted_blocks:
+        for block in self.sorted_blocks:
             # Get all instructions in this block that are in the slice.
             linenos = block.get_instruction_linenos().intersection(slice_instrs)
 
@@ -170,76 +213,90 @@ class Slice(object):
         return func
 
     # Gets a slice for the function block for the given line number.
-    def get_slice(self, start_lineno):
-        sorted_blocks = self.func.get_sorted_blocks()
-        instrs = self._get_instructions_in_slice(start_lineno)
-        slice_func = self._generate_cfg_slice(sorted_blocks, instrs)
+    def get_slice(self, instrs):
+        slice_func = self._generate_cfg_slice(instrs)
         slice_func = self.condense_cfg(slice_func)
         return slice_func
 
-    def get_average_slice_complexity(self, debug=False):
-        sorted_blocks = self.func.get_sorted_blocks()
-        num_instrs = 0.0
-        complexity = 0.0
 
-        for block in sorted_blocks:
+    #### SECTION: NEED TO FINISH (AND TEST)
+
+
+    # Gets map of line number to slice.
+    # Parameter kwargs is arguments to _get_instructions_in_slice().
+    def get_slice_map(self, **kwargs):
+        slice_map = {}
+        for block in self.sorted_blocks:
             for lineno in block.get_instruction_linenos():
-                slice_cfg = self.get_slice(lineno)
-                slice_complexity = slice_cfg.get_cyclomatic_complexity()
-                if debug:
-                    print("\t\t\t%d  |  %d" %(slice_complexity, lineno))
-                complexity += slice_complexity
-                num_instrs += 1.0
-        return float(complexity) / float(num_instrs)
+                instrs = frozenset(self._get_instructions_in_slice(lineno, kwargs))
+                if instrs:
+                    # Use cache of slices of instructions to CFGs.
+                    if instrs not in self._SLICE_CACHE:
+                        slice_cfg = self.get_slice(instrs)
+                        slice_complexity = slice_cfg.get_cyclomatic_complexity()
+                        self._SLICE_CACHE[instrs] = {'complexity': slice_complexity,
+                                                     'cfg': slice_cfg}
+                    slice_map[lineno] = self._SLICE_CACHE[instrs]
+        return slice_map
 
-    def get_average_slice_possible_remove(self, debug=False):
-        sorted_blocks = self.func.get_sorted_blocks()
-        num_instrs = 0.0
-        complexity = 0.0
-        prev_complexity = 0.0
-        DIFF = 1
+    # Gets groups of line numbers with greater than max diff between slices.
+    def _compare_slice_maps(self, slice_map, reduced_slice_map,
+                            min_diff_complexity, max_diff_linenos):
+        linenos = []
+        for lineno in sorted(slice_map.keys()):
+            if lineno in slice_map and lineno in reduced_slice_map:
+                slice_complexity = slice_map[lineno]['complexity']
+                reduced_slice_complexity = reduced_slice_map[lineno]['complexity']
+                if (slice_complexity - reduced_slice_complexity) >= min_diff_complexity:
+                    linenos.append(lineno)
 
-        for block in sorted_blocks:
-            for lineno in block.get_instruction_linenos():
-                slice_cfg = self.get_slice(lineno)
-                slice_complexity = slice_cfg.get_cyclomatic_complexity()
-                if (prev_complexity - slice_complexity) > DIFF:
-                    print("\t\t\t %d | %d %d" %(lineno, prev_complexity, slice_complexity))
-                prev_complexity = slice_complexity
-                if debug:
-                    print("\t\t\t%d  |  %d" %(slice_complexity, lineno))
-                complexity += slice_complexity
-                num_instrs += 1.0
-        return float(complexity) / float(num_instrs)
+        # Groups line numbers within the epsilon of each other.
+        linenos = sorted(linenos)
+        return split(linenos, where(diff(linenos) >= max_diff_linenos)[0] + 1)
 
+    # Gets the suggestions on a slice based on removing control.
+    def _get_suggestions_remove_control(self, slice_map, debug):
+        suggestions = []
 
-    def get_average_slice_complexity_with_linenos(self, debug=False):
-        sorted_blocks = self.func.get_sorted_blocks()
-        line_number = 1.0
-        complexity = 0.0
+        # Get line numbers with decrease in complexity from control.
+        reduced_slice_map = self.get_slice_map(include_control=False)
+        linenos = self._compare_slice_maps(slice_map, reduced_slice_map,
+                                           Slice.MIN_DIFF_COMPLEXITY,
+                                           Slice.MAX_DIFF_FOR_GROUPING)
 
-        for block in sorted_blocks:
-            for lineno in block.get_instruction_linenos():
-                slice_cfg = self.get_slice(lineno)
-                slice_complexity = slice_cfg.get_cyclomatic_complexity()
-                if debug:
-                    print("\t\t\t%d  %d  |  %d" %(
-                        slice_complexity, slice_complexity * line_number, lineno))
-                complexity += slice_complexity * line_number
-                line_number += 1.0
-        return float(complexity) / float(line_number)
+        # Generate suggestions for the groups of line numbers.
+        for group in linenos:
+            if len(group) >= Slice.MIN_LINES_FOR_SUGGESTION:
+                message = "Control is complex. Try creating a new function."
+                suggestions.append(Suggestion(message, min(group), max(group)))
+        return suggestions
 
-    def get_slice_last_statement(self):
-        # Get last statement.
-        sorted_blocks = self.func.get_sorted_blocks()
-        instr = None
-        block_idx = -1
-        while instr is None:
-            instrs = sorted_blocks[block_idx].get_instructions()
-            if instrs:
-                instr = instrs[-1]
-            block_idx -= 1
+    # Gets the suggestions on a slice based on removing variables.
+    def _get_suggestions_remove_variables(self, slice_map, debug=False):
+        suggestions = []
+        variables = self._get_variables_in_slice()
+        for var in variables:
+            reduced_slice_map = self.get_slice_map(remove_vars=[var])
+            linenos = self._compare_slice_maps(slice_map, reduced_slice_map,
+                                               Slice.MIN_DIFF_COMPLEXITY,
+                                               Slice.MAX_DIFF_FOR_GROUPING)
 
-        # Get slice from instruction.
-        slice_cfg = self.get_slice(instr.lineno)
-        return slice_cfg
+            # Generate suggestions for the groups of line numbers.
+            for group in linenos:
+                if len(group) >= Slice.MIN_LINES_FOR_SUGGESTION:
+                    message = "Try creating a new function with parameter {}".format(var)
+                    suggestions.append(Suggestion(message, min(group), max(group)))
+        return suggestions
+
+    # Gets the suggestions on how to improve the function.
+    def get_suggestions(self, debug=False):
+        suggestions = []
+        slice_map = self.get_slice_map()
+
+        suggestions.extend(self._get_suggestions_remove_control(slice_map, debug))
+        suggestions.extend(self._get_suggestions_remove_variables(slice_map, debug))
+
+        if suggestions:
+            for suggestion in suggestions:
+                print(suggestion)
+        return suggestions
