@@ -163,6 +163,12 @@ class BlockInterface(ABC):
     def add_instruction(self, instruction):
         self._instructions[instruction.lineno] = copy.deepcopy(instruction)
 
+    # Adds instruction to multiline.
+    def add_multiline_instructions(self, lineno, linenos):
+        instruction = self._get_instruction(lineno)
+        for lineno in linenos:
+            instruction.multiline.add(lineno)
+
     # Adds a block as a successor and this block as its predecessor.
     def add_successor(self, block):
         if block != self:
@@ -294,6 +300,8 @@ class FunctionBlock(BlockInterface):
 
     def __init__(self, label):
         super(self.__class__, self).__init__(label)
+        self.blank_lines = None
+        self.comments = None
 
     def __str__(self):
         string = '%s\n' %super(FunctionBlock, self).__str__()

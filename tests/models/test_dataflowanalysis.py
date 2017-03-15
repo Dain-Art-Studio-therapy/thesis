@@ -20,7 +20,7 @@ class TestReachingDefinitionsAnalysis(unittest.TestCase):
     def _generate_cfg(self, source):
         node = ast.parse(source)
         generator = CFGGenerator(False)
-        return generator.generate(node)
+        return generator.generate(node, source)
 
     def setUp(self):
         Block._label_counter.reset()

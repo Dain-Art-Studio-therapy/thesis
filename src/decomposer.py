@@ -63,24 +63,35 @@ def main():
 
     # Generate CFG.
     generator = CFGGenerator(args.debug)
-    cfg = generator.generate(node)
+    cfg = generator.generate(node, source)
 
     # Prints slice calculated on the return statement.
     total_complexity = 0
     total_reduced_compexity = 0
+    total_func_complexity = 0
 
+    print('Running file... {}'.format(args.filename))
     for func_block in cfg.get_funcs():
         func_slice = Slice(func_block)
 
+        # Get complexities.
         func_complexity = func_block.get_cyclomatic_complexity()
         func_reduced_complexity = func_slice.condense_cfg(func_block).get_cyclomatic_complexity()
-        func_slice.get_suggestions()
+        suggestion_complexity = func_slice.get_complexity()
 
+        # Print suggestions
+        suggestions = func_slice.get_suggestions()
+        if suggestions:
+            for suggestion in suggestions:
+                print("\t{}".format(suggestion))
+
+        # Total complexity.
         total_complexity += func_complexity
         total_reduced_compexity += func_reduced_complexity
-        print('\t%s - %d  |  %d' %(func_block.label, func_complexity, func_reduced_complexity))
+        total_func_complexity += suggestion_complexity
+        # print('\t\t{} - {}  |  {}  {}'.format(func_block.label, func_complexity, func_reduced_complexity, func_complexity))
 
-    print('    TOTAL: %d  |  %d' %(total_complexity, total_reduced_compexity))
+    print('    TOTAL: {0}  |  {1}  |  {2:.2f}\n'.format(total_complexity, total_reduced_compexity, total_func_complexity))
 
 
 if __name__ == '__main__':

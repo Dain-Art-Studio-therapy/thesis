@@ -4,7 +4,7 @@ HW_NUM=hw5
 FILES=codesample/student_solution/$HW_NUM/*/cast.py
 for f in $FILES
 do
-    echo "Running file... $f"
+    # echo "Running file... $f"
     python -m src.decomposer $f
 done
 
@@ -16,5 +16,5 @@ then
 else
     PROF_FILENAME=$FILE/cast.py
 fi
-echo "\nProfessor solution... $PROF_FILENAME"
+# echo "\nProfessor solution... $PROF_FILENAME"
 python -m src.decomposer $PROF_FILENAME

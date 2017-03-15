@@ -6,19 +6,95 @@
 
 import ast
 import _ast
+import re
 
 from src.globals import *
 from src.models.block import BlockList, Block, FunctionBlock
 from src.models.instruction import Instruction, InstructionType
 
 
-# Type of the variable.
 class TypeVariable(object):
+    """
+    Enumerator that states type of the variable.
+    """
     LOAD = 1
     STORE = 2
 
 
-# Visitor to generate CFG.
+class TokenGenerator(object):
+    """
+    Generates and retains tokens.
+    """
+    def __init__(self, source):
+        self.lines = source.splitlines(True)
+        self.blank_lines = self._get_blank_lines()
+        self.comments = self._get_commented_lines()
+        self.multiline = self._get_multiline_instructions()
+
+    def _get_blank_lines(self):
+        blank_lines = set()
+        for lineno, line in enumerate(self.lines, 1):
+            if not line.strip():
+                blank_lines.add(lineno)
+        return blank_lines
+
+    def _get_commented_lines(self):
+        comments = set()
+        inside_comment_block = False
+
+        for lineno, line in enumerate(self.lines, 1):
+            stripped_line = line.strip()
+            # Check if current line is a comment or inside a comment.
+            if ((stripped_line and stripped_line[0] == '#') or
+                inside_comment_block):
+                comments.add(lineno)
+
+            # Check if inside comment block.
+            matches = re.findall(r'"""[^"]', line)
+            for block_comment in range(len(matches)):
+                inside_comment_block = not inside_comment_block
+                if inside_comment_block:
+                    comments.add(lineno)
+        return comments
+
+    def _get_multiline_instructions(self):
+        multiline = {}
+        brackets_stack = []
+
+        last_slash = None
+        start = 1
+        end = 1
+
+        for lineno, line in enumerate(self.lines, 1):
+            if not len(brackets_stack) and not last_slash:
+                start = lineno
+
+            if (lineno not in self.blank_lines and
+                lineno not in self.comments):
+                # Checks for multiline parenthesis.
+                for character in line:
+                    if character == '(':
+                        brackets_stack.append('(')
+                    elif character == ')':
+                        brackets_stack.pop()
+
+                # Add range to dictionary if multiline.
+                end = lineno
+                if (not len(brackets_stack) or
+                    (last_slash and last_slash == lineno - 1)):
+                    if start != end:
+                        for grouped_lineno in range(start, end+1):
+                            multiline[grouped_lineno] = set(range(start, end+1))
+
+                # Initialize multiline \ for next iteration.
+                if (len(line) >= 2 and line[-2] == '\\'):
+                    last_slash = lineno
+                else:
+                    last_slash = None
+
+        return multiline
+
+
 class CFGGenerator(ast.NodeVisitor):
     """
     Generates a CFG from an AST.
@@ -35,21 +111,31 @@ class CFGGenerator(ast.NodeVisitor):
         self.block_list = BlockList()
         self.current_block = None
         self.current_control = None
+        self.tokens = None
+        self.last_lineno = None
 
     # Generates CFG.
-    def generate(self, node):
+    def generate(self, node, source):
         self._init_variables()
+        self.tokens = TokenGenerator(source)
         self.visit(node)
         return self.block_list
 
-    # Adds a variable to the current block.
-    def _add_variable(self, lineno, variable, action):
+    # Adds information about an instruction to the current block at lineno.
+    def _add_instruction_info(self, lineno, var=None, action=None, instr_type=None):
         if action == TypeVariable.LOAD:
-            self.current_block.add_reference(lineno, variable)
+            self.current_block.add_reference(lineno, var)
         if action == TypeVariable.STORE:
-            self.current_block.add_definition(lineno, variable)
+            self.current_block.add_definition(lineno, var)
         if self.current_control:
             self.current_block.add_instr_control(lineno, self.current_control)
+        if instr_type:
+            self.current_block.add_instruction_type(lineno, instr_type)
+        if lineno in self.tokens.multiline:
+            self.current_block.add_multiline_instructions(
+                lineno, self.tokens.multiline[lineno])
+        if not self.last_lineno or lineno > self.last_lineno:
+            self.last_lineno = lineno
 
     # Visits element within node.
     def _visit_item(self, value):
@@ -94,9 +180,16 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_FunctionDef(self, node):
         prev_block = self.current_block
-        self.current_block = FunctionBlock(node.name)
+
+        # Create FunctionBlock.
+        func_block = self.current_block = FunctionBlock(node.name)
         self.block_list.add(self.current_block)
         self.generic_visit(node)
+
+        # Add blank linenos and comments.
+        linenos = set(range(node.lineno, self.last_lineno+1))
+        func_block.blank_lines = linenos.intersection(self.tokens.blank_lines)
+        func_block.comments = linenos.intersection(self.tokens.comments)
         self.current_block = prev_block
 
     # # ClassDef(identifier name, expr* bases, stmt* body, expr* decorator_list)
@@ -107,7 +200,7 @@ class CFGGenerator(ast.NodeVisitor):
     # input: Return(expr? value)
     # output: None
     def visit_Return(self, node):
-        self.current_block.add_instruction_type(node.lineno, InstructionType.RETURN)
+        self._add_instruction_info(node.lineno, instr_type=InstructionType.RETURN)
         self.generic_visit(node)
 
     # # Delete(expr* targets)
@@ -129,7 +222,7 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_Print(self, node):
         # Compatible with Python 2 print.
-        self._add_variable(node.lineno, 'print', TypeVariable.LOAD)
+        self._add_instruction_info(node.lineno, var='print', action=TypeVariable.LOAD)
         self.generic_visit(node)
 
     # input: For(expr target, expr iter, stmt* body, stmt* orelse)
@@ -222,10 +315,10 @@ class CFGGenerator(ast.NodeVisitor):
             start_block.add_successor(start_else_block)
             self.current_block = start_else_block
 
-            # If else block then add instruction 'else' as a placeholder.
+            # If else block then add instruction type ELSE as a placeholder.
             if not isinstance(node.orelse[0], _ast.If):
                 lineno = node.orelse[0].lineno - 1
-                self._add_variable(lineno, 'else', TypeVariable.LOAD)
+                self._add_instruction_info(lineno, instr_type=InstructionType.ELSE)
                 self.current_control = (lineno)
 
             self._visit_item(node.orelse)
@@ -388,13 +481,13 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_Name(self, node):
         action = self._visit_item(node.ctx)
-        self._add_variable(node.lineno, node.id, action)
+        self._add_instruction_info(node.lineno, var=node.id, action=action)
 
     # input: arg = (identifier arg, expr? annotation)
     # output: None
     def visit_arg(self, node):
         # Compatible with Python 3 arguments.
-        self._add_variable(node.lineno, node.arg, TypeVariable.STORE)
+        self._add_instruction_info(node.lineno, var=node.arg, action=TypeVariable.STORE)
 
     # # List(expr* elts, expr_context ctx)
     # def visit_List(self, node):

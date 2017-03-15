@@ -13,8 +13,13 @@
 # python3 -m src.decomposer codesample/python3/simple_reaching_def.py
 
 # python -m src.decomposer codesample/python2/hw4_cast_1.py
+python -m src.decomposer codesample/student_solution/hw5/1/cast.py
 python -m src.decomposer codesample/student_solution/hw5/19/cast.py
-python -m src.decomposer codesample/student_solution/hw5/58/cast.py
-python -m src.decomposer codesample/student_solution/hw5/13/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/58/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/13/cast.py
 python -m src.decomposer codesample/professor_solution/hw5/cast.py
 # python -m src.decomposer codesample/student_solution/hw4/31/cast.py
+
+python -m src.decomposer codesample/student_solution/hw5/26/cast.py
+python -m src.decomposer codesample/student_solution/hw5/18/cast.py
+python -m src.decomposer codesample/student_solution/hw5/27/cast.py

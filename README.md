@@ -21,11 +21,7 @@
 # Extended TODO List
 ### Questions
 
-1. Should I make if/elif/else have 1 exit block?
-      - Pro: Lower cyclomatic complexity of if/elif/else vs 2 if/else
-      - Con: More complicated
-2. Function inside function breaks code (student hw 4 #31). Can I ignore?
-3. If a variable is out of scope, should it perform "correctly"?
+1. If a variable is out of scope, should it perform "correctly"?
       - Ex. _get_instructions_in_slice --> var init inside loop, print outside
 
 
@@ -66,6 +62,7 @@
 
 1. Refactor `generatecfg.py` to not use `current_block`.
 2. Handle functions within a class.
+3. Handle functions within functions (hw4 #31).
 
 
 ### Thoughts When Looking Over Code

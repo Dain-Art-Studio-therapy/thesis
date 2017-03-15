@@ -101,6 +101,9 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(len(self.block1.get_instructions()), 1)
         self.assertEqual(set(self.block1._instructions.keys()), set([1]))
 
+    def test_add_multiline_instructions(self):
+        self.skipTest('TODO: FINISH')
+
     def test_add_successor(self):
         self.block1.add_successor(self.block1)
         self.block1.add_successor(self.block2)
@@ -323,6 +326,12 @@ class TestFunctionBlock(unittest.TestCase):
 
     def setUp(self):
         self.func_block1 = FunctionBlock('func1')
+        self.generator = CFGGenerator(False)
+
+    def _generate_cfg(self, source):
+        node = ast.parse(source)
+        cfg = self.generator.generate(node, source)
+        return cfg
 
     def test_labels(self):
         self.assertEqual(self.func_block1.label, 'func1')
@@ -337,9 +346,7 @@ class TestFunctionBlock(unittest.TestCase):
                   '        for integer in numbers:\n'
                   '            print("%d " %integer)')
 
-        generator = CFGGenerator(False)
-        node = ast.parse(source)
-        cfg = generator.generate(node)
+        cfg = self._generate_cfg(source)
         funcA = cfg.get_func('funcA')
         sorted_blocks = funcA.get_sorted_blocks()
 
@@ -364,9 +371,7 @@ class TestFunctionBlock(unittest.TestCase):
                   '             a = a - 1\n'    # line 9
                   '         i = i + 1')         # line 10
 
-        generator = CFGGenerator(False)
-        node = ast.parse(source)
-        cfg = generator.generate(node)
+        cfg = self._generate_cfg(source)
         funcA = cfg.get_func('funcA')
         sorted_blocks = funcA.get_sorted_blocks()
 

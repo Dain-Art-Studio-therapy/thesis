@@ -10,8 +10,10 @@ from src.globals import *
 
 
 class InstructionType(Enum):
-    __order__ = 'RETURN'
+    __order__ = 'RETURN, ELSE, BLANK_LINE'
     RETURN = 1
+    ELSE = 2
+    BLANK_LINE = 3
 
 
 class Instruction(object):
@@ -36,6 +38,7 @@ class Instruction(object):
         self.referenced = set()
         self.defined = set()
         self.control = None
+        self.multiline = set()
 
     def __str__(self):
         string = '#%d | ' %self.lineno
@@ -45,6 +48,8 @@ class Instruction(object):
             string += 'REF(%s) ' %(', '.join(self.referenced))
         if self.defined:
             string += 'DEF(%s) ' %(', '.join(self.defined))
+        if self.multiline:
+            string += 'MULTI(%s) ' %(', '.join(self.multiline))
         if self.instruction_type:
             string += '- %s' %(self.instruction_type.name.lower())
         return string
@@ -56,7 +61,9 @@ class Instruction(object):
         return (self.instruction_type == other.instruction_type and
                 self.lineno == other.lineno and
                 self.referenced == other.referenced and
-                self.defined == other.defined)
+                self.defined == other.defined and
+                self.control == other.control and
+                self.multiline == other.multiline)
 
     def __ne__(self, other):
         return not self == other

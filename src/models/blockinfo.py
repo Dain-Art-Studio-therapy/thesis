@@ -152,8 +152,12 @@ class FunctionBlockInformation(object):
 
     # Gets instruction for a given line number.
     def get_instruction(self, lineno):
-        return self._instructions[lineno]
+        if lineno in self._instructions:
+            return self._instructions[lineno]
+        return None
 
     # Returns NodeInformation for a given line number.
     def get_instruction_info(self, lineno):
-        return self._instruction_info[lineno]
+        if lineno in self._instruction_info:
+            return self._instruction_info[lineno]
+        return None

@@ -17,22 +17,22 @@ from src. models.block import BlockList
 class TestSuggestion(unittest.TestCase):
 
     def test_init(self):
-        suggestion = Suggestion("message", start_lineno=1)
+        suggestion = Suggestion("message", "funcA", start_lineno=1)
         self.assertEqual(suggestion.message, "message")
         self.assertEqual(suggestion.start_lineno, 1)
         self.assertEqual(suggestion.end_lineno, 1)
 
-        suggestion = Suggestion("message", start_lineno=1, end_lineno=3)
+        suggestion = Suggestion("message", "funcA", start_lineno=1, end_lineno=3)
         self.assertEqual(suggestion.message, "message")
         self.assertEqual(suggestion.start_lineno, 1)
         self.assertEqual(suggestion.end_lineno, 3)
 
     def test_sort(self):
-        suggestion1 = Suggestion("message", start_lineno=1)
-        suggestion3 = Suggestion("message", start_lineno=3)
-        suggestion35 = Suggestion("message", start_lineno=3, end_lineno=5)
-        suggestion4 = Suggestion("message", start_lineno=4)
-        suggestion4cpy = Suggestion("message", start_lineno=4)
+        suggestion1 = Suggestion("message", "funcA", start_lineno=1)
+        suggestion3 = Suggestion("message", "funcA", start_lineno=3)
+        suggestion35 = Suggestion("message", "funcA", start_lineno=3, end_lineno=5)
+        suggestion4 = Suggestion("message", "funcA", start_lineno=4)
+        suggestion4cpy = Suggestion("message", "funcA", start_lineno=4)
         suggestions = [suggestion4cpy, suggestion1, suggestion35, suggestion4, suggestion3]
         suggestions.sort()
 
@@ -43,11 +43,11 @@ class TestSuggestion(unittest.TestCase):
         self.assertEqual(suggestions[4], suggestion4)
 
     def test_sorted(self):
-        suggestion1 = Suggestion("message", start_lineno=1)
-        suggestion3 = Suggestion("message", start_lineno=3)
-        suggestion35 = Suggestion("message", start_lineno=3, end_lineno=5)
-        suggestion4 = Suggestion("message", start_lineno=4)
-        suggestion4cpy = Suggestion("message", start_lineno=4)
+        suggestion1 = Suggestion("message", "funcA", start_lineno=1)
+        suggestion3 = Suggestion("message", "funcA", start_lineno=3)
+        suggestion35 = Suggestion("message", "funcA", start_lineno=3, end_lineno=5)
+        suggestion4 = Suggestion("message", "funcA", start_lineno=4)
+        suggestion4cpy = Suggestion("message", "funcA", start_lineno=4)
         suggestions = [suggestion4cpy, suggestion4, suggestion35, suggestion3, suggestion1]
         suggestions = sorted(suggestions)
 
@@ -58,11 +58,11 @@ class TestSuggestion(unittest.TestCase):
         self.assertEqual(suggestions[4], suggestion4)
 
     def test_str(self):
-        suggestion = Suggestion("message", start_lineno=1)
-        self.assertEqual(str(suggestion), "1 : message")
+        suggestion = Suggestion("message", "funcA", start_lineno=1)
+        self.assertEqual(str(suggestion), "line 1 (funcA) : message")
 
-        suggestion = Suggestion("message", start_lineno=1, end_lineno=3)
-        self.assertEqual(str(suggestion), "1-3 : message")
+        suggestion = Suggestion("message", "funcA", start_lineno=1, end_lineno=3)
+        self.assertEqual(str(suggestion), "line 1-3 (funcA) : message")
 
 
 # Framework for testing Slice class.
@@ -74,7 +74,7 @@ class TestSlice(unittest.TestCase):
     def _generate_cfg(self, source):
         node = ast.parse(source)
         generator = CFGGenerator(False)
-        return generator.generate(node)
+        return generator.generate(node, source)
 
     def _get_slice_class(self, source):
         cfg = self._generate_cfg(source)
@@ -110,6 +110,15 @@ class TestSlice(unittest.TestCase):
             self.assertFalse(actual)
         else:
             self.assertEqual(actual, set(successors))
+
+
+class TestHelperFunctions(TestSlice):
+
+    def test_group_linenos(self):
+        self.skipTest('TODO: TEST')
+
+    def test_compare_slice_maps(self):
+        self.skipTest('TODO: TEST')
 
 
 # Tests conditionals with Slice class.
@@ -401,6 +410,10 @@ class TestSliceLoops(TestSlice):
 
         # Test without including extra control.
         instrs = self._get_instrs_slice(source, 10, include_control=False)
+        self.assertEqual(instrs, set([3, 5, 6, 7, 10]))
+
+        # Test with excluding x.
+        instrs = self._get_instrs_slice(source, 10, exclude_vars=['x'])
         self.assertEqual(instrs, set([3, 5, 6, 7, 10]))
 
     # Test _get_instructions_in_slice with line 8 as 'new_var = 0'.
