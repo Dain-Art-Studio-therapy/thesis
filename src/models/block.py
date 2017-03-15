@@ -104,19 +104,7 @@ class BlockInterface(ABC):
     def __eq__(self, other):
         if not other or not isinstance(other, self.__class__):
             return False
-
-        # Check successors and predecessors and number of instructions.
-        if (self.label != other.label or
-            self.successors.keys() != other.successors.keys() or
-            self.predecessors.keys() != other.predecessors.keys() or
-            self.get_instruction_linenos() != other.get_instruction_linenos()):
-            return False
-
-        # Check instructions.
-        for instruction in self.get_instructions():
-            if other.get_instruction(instruction.lineno) != instruction:
-                return False
-        return True
+        return self.label == other.label and self.equals(other)
 
     def __ne__(self, other):
         return not self == other
@@ -132,6 +120,33 @@ class BlockInterface(ABC):
         if hasattr(self, '_BlockInterface__label'):
             raise ValueError('\'label\' is immutable')
         self.__label = label
+
+    # Checks if blocks are equal excluding the labels.
+    def equals(self, block):
+        # Check successors and predecessors and number of instructions.
+        if (self.successors.keys() != block.successors.keys() or
+            self.predecessors.keys() != block.predecessors.keys() or
+            self.get_instruction_linenos() != block.get_instruction_linenos()):
+            return False
+
+        # Check instructions.
+        for instruction in self.get_instructions():
+            if block.get_instruction(instruction.lineno) != instruction:
+                return False
+        return True
+
+    # Checks if all successors are equal.
+    def check_successor_equality(self):
+        # Returns True if number of successors is less than 2.
+        if len(self.successors) < 2:
+            return True
+
+        # Checks for equality of remaining successors.
+        successors = list(self.successors.values())
+        for idx in range(len(self.successors)-1):
+            if not successors[idx].equals(successors[idx+1]):
+                return False
+        return True
 
     # Gets an instruction from the block.
     def _get_instruction(self, lineno):

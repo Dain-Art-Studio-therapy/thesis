@@ -47,6 +47,18 @@ class TestBlock(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.block1.label = 'error_label'
 
+    def test_equals(self):
+        self.skipTest('TODO: Implement')
+
+        # Check where label is different
+        #   - Create 2 different block with same successor, predecessor, instrs
+
+    def test_check_successor_equality(self):
+        self.skipTest('TODO: Implement')
+        # Checks block without any successors.
+
+        # Checks block with successors.
+
     def test_add_reference(self):
         self.block1.add_reference(lineno=1, variable='varA')
         self.assertEqual(self.block1._instructions[1].referenced, set(['varA']))

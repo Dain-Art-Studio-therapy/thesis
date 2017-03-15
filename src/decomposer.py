@@ -77,7 +77,7 @@ def main():
         # Get complexities.
         func_complexity = func_block.get_cyclomatic_complexity()
         func_reduced_complexity = func_slice.condense_cfg(func_block).get_cyclomatic_complexity()
-        suggestion_complexity = func_slice.get_complexity()
+        suggestion_complexity = func_slice.get_lineno_complexity()
 
         # Print suggestions
         suggestions = func_slice.get_suggestions()

@@ -6,11 +6,13 @@
 
 import unittest
 import ast
+import copy
 
 from src.globals import *
 from src.generatecfg import CFGGenerator
 from src.models.slice import *
-from src. models.block import BlockList
+from src.models.block import BlockList
+from src.models.instruction import Instruction
 
 
 # Tests Suggestion class.
@@ -95,7 +97,7 @@ class TestSlice(unittest.TestCase):
     def _get_slice(self, source, lineno):
         slicemethod = self._get_slice_class(source)
         instrs = slicemethod._get_instructions_in_slice(lineno)
-        return slicemethod.get_slice(instrs)
+        return slicemethod.get_slice(instrs)['cfg']
 
     def assertBlockInstrsEqual(self, block, linenos):
         actual = block.get_instruction_linenos()
@@ -112,19 +114,209 @@ class TestSlice(unittest.TestCase):
             self.assertEqual(actual, set(successors))
 
 
-class TestHelperFunctions(TestSlice):
+# Tests Slice generate CFG related helper functions.
+class TestSliceGenerateCFGFuncs(TestSlice):
+
+    def _get_source(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    x = ("testing\\n"\n'         # line 2
+                  '     "testing2\\n"\n'            # line 3
+                  '            "testing3")\n'       # line 4
+                  '    z = (y\n'                    # line 5
+                  '         + y)\n'                 # line 6
+                  '    if (z\n'                     # line 7
+                  '     < 7 or len(x) < 2):\n'      # line 8
+                  '        temp = 5\n'              # line 9
+                  '        return z\n'              # line 10
+                  '    return x\n')                 # line 11
+        return source
+
+    def test_get_linenos_in_func(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        self.assertEqual(slicemethod.linenos, [1, 2, 5, 6, 7, 8, 9, 10, 11])
+
+
+    def test_get_variables_in_func(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        self.assertEqual(slicemethod.variables, set(['x', 'y', 'z', 'temp']))
+
+    def test_get_instructions_in_slice(self):
+        source = self._get_source()
+        instrs = self._get_instrs_slice(source, 11)
+        self.assertEqual(instrs, set([2, 3, 4, 11]))
+
+        instrs = self._get_instrs_slice(source, 10)
+        self.assertEqual(instrs, set([1, 2, 3, 4, 5, 6, 7, 8, 10]))
+
+        instrs = self._get_instrs_slice(source, 9)
+        self.assertEqual(instrs, set([1, 2, 3, 4, 5, 6, 7, 8, 9]))
+
+    def test_get_instructions_in_slice_include_control(self):
+        source = self._get_source()
+        instrs = self._get_instrs_slice(source, 11, include_control=False)
+        self.assertEqual(instrs, set([2, 3, 4, 11]))
+
+        instrs = self._get_instrs_slice(source, 10, include_control=False)
+        self.assertEqual(instrs, set([1, 2, 3, 4, 5, 6, 7, 8, 10]))
+
+        instrs = self._get_instrs_slice(source, 9, include_control=False)
+        self.assertEqual(instrs, set([9]))
+
+    def test_get_instructions_in_slice_exclude_vars(self):
+        source = self._get_source()
+
+        # Line 11.
+        instrs = self._get_instrs_slice(source, 11, exclude_vars=['x'])
+        self.assertEqual(instrs, set([11]))
+
+        # Line 10.
+        instrs = self._get_instrs_slice(source, 10, exclude_vars=['x'])
+        self.assertEqual(instrs, set([1, 5, 6, 7, 8, 10]))
+
+        instrs = self._get_instrs_slice(source, 10, exclude_vars=['y'])
+        self.assertEqual(instrs, set([2, 3, 4, 5, 6, 7, 8, 10]))
+
+        instrs = self._get_instrs_slice(source, 10, exclude_vars=['z'])
+        self.assertEqual(instrs, set([2, 3, 4, 7, 8, 10]))
+
+        # Line 11.
+        instrs = self._get_instrs_slice(source, 9, exclude_vars=['x'])
+        self.assertEqual(instrs, set([1, 5, 6, 7, 8, 9]))
+
+        instrs = self._get_instrs_slice(source, 9, exclude_vars=['z'])
+        self.assertEqual(instrs, set([2, 3, 4, 7, 8, 9]))
+
+
+# Tests Slice condense algorithm related helper functions.
+class TestSliceCondenseFuncs(TestSlice):
+
+    def _get_block(self, predecessor=None, successor=None, instructions=None):
+        block = Block()
+        if predecessor:
+            block.add_predecessor(predecessor)
+        if successor:
+            block.add_successor(successor)
+        if instructions:
+            for instruction in instructions:
+                block.add_instruction(instruction)
+        return block
+
+    def test_condense_cfg_fold_redundant_branch_identical(self):
+        start_block = FunctionBlock('funcA')
+        exit_block = self._get_block()
+
+        successor_block_1 = self._get_block(start_block, exit_block)
+        successor_block_2 = self._get_block(start_block, exit_block)
+        successor_block_3 = self._get_block(start_block, exit_block)
+
+        self.assertFalse(start_block.predecessors)
+        self.assertEqual(len(start_block.successors), 3)
+        self.assertEqual(len(exit_block.predecessors), 3)
+        self.assertFalse(exit_block.successors)
+
+        slicemethod = Slice(start_block)
+        slicemethod._condense_cfg_fold_redundant_branch(start_block)
+
+        # Check for change after calling function.
+        self.assertFalse(start_block.predecessors)
+        self.assertEqual(len(start_block.successors), 1)
+        self.assertEqual(len(exit_block.predecessors), 1)
+        self.assertFalse(exit_block.successors)
+
+        self.assertTrue(successor_block_1.label in start_block.successors)
+        self.assertTrue(successor_block_1.label in exit_block.predecessors)
+
+        self.assertEqual(len(successor_block_1.successors), 1)
+        self.assertEqual(len(successor_block_1.predecessors), 1)
+        self.assertFalse(successor_block_2.predecessors)
+        self.assertFalse(successor_block_2.successors)
+        self.assertFalse(successor_block_3.predecessors)
+        self.assertFalse(successor_block_3.successors)
+
+    def test_condense_cfg_fold_redundant_branch_non_identical(self):
+        instructions = [Instruction(lineno=1)]
+        start_block = FunctionBlock('funcA')
+        exit_block = self._get_block()
+
+        successor_block_1 = self._get_block(start_block, exit_block)
+        successor_block_2 = self._get_block(start_block, exit_block)
+        successor_block_3 = self._get_block(start_block, exit_block, instructions)
+
+        self.assertFalse(start_block.predecessors)
+        self.assertEqual(len(start_block.successors), 3)
+        self.assertEqual(len(exit_block.predecessors), 3)
+        self.assertFalse(exit_block.successors)
+
+        slicemethod = Slice(start_block)
+        slicemethod._condense_cfg_fold_redundant_branch(start_block)
+
+        # Check for no change after calling function.
+        self.assertFalse(start_block.predecessors)
+        self.assertEqual(len(start_block.successors), 3)
+        self.assertEqual(len(exit_block.predecessors), 3)
+        self.assertFalse(exit_block.successors)
+
+    def test_condense_cfg_remove_empty_block(self):
+        self.skipTest('TODO: Implement')
+
+    def test_condense_cfg_combine_blocks(self):
+        self.skipTest('TODO: Implement')
+
+    def test_condense_cfg_hoist_branch(self):
+        self.skipTest('TODO: Implement')
+
+
+# Tests Slice generating slice and slice map related helper functions.
+class TestSliceGenerateSliceFuncs(TestSlice):
+
+    def test_get_slice(self):
+        self.skipTest('TODO: Implement')
+        # Check if self._SLICE_CACHE is set.
+
+    def test_get_slice_map(self):
+        self.skipTest('TODO: Implement')
+        # Include no kwargs
+
+    def test_get_slice_map_kwargs(self):
+        self.skipTest('TODO: Implement')
+        # Include "include_control=False"
+
+
+# Tests Slice comparing slice map related helper functions.
+class TestSliceCompareSliceMapFuncs(TestSlice):
 
     def test_group_linenos(self):
-        self.skipTest('TODO: TEST')
+        self.skipTest('TODO: Implement')
+
+    def test_adjust_linenos_multiline_groups(self):
+        self.skipTest('TODO: Implement')
 
     def test_compare_slice_maps(self):
-        self.skipTest('TODO: TEST')
+        self.skipTest('TODO: Implement')
+
+
+# Tests Slice generating suggestions related helper functions.
+class TestSliceGenerateSuggestionsFuncs(TestSlice):
+
+    def test_generate_suggestions_variable_map(self):
+        self.skipTest('TODO: Implement')
+
+    def test_get_suggestions_remove_variables(self):
+        self.skipTest('TODO: Implement')
+
+    def test_get_suggestions(self):
+        self.skipTest('TODO: Implement')
+
+    def test_get_lineno_complexity(self):
+        self.skipTest('TODO: Implement')
 
 
 # Tests conditionals with Slice class.
 class TestSliceConditional(TestSlice):
 
-    def _get_conditional_source(self, var):
+    def _get_source(self, var):
         source = ('def funcA(b):\n'             # line 1
                   '     unused = 1\n'           # line 2
                   '     c = 2\n'                # line 3
@@ -140,46 +332,46 @@ class TestSliceConditional(TestSlice):
                   '     print(a)\n' %var)       # line 13
         return source
 
-    # Test _get_variables_in_slice.
-    def test_get_variables_in_slice(self):
-        source = self._get_conditional_source('5')
+    # Test _get_variables_in_func.
+    def test_get_variables_in_func(self):
+        source = self._get_source('5')
         slicemethod = self._get_slice_class(source)
-        variables = slicemethod._get_variables_in_slice()
+        variables = slicemethod._get_variables_in_func()
         self.assertEqual(variables, set(['a', 'b', 'c', 'd', 'unused']))
 
     # Test _get_instructions_in_slice with line 12 as 'a = 5'.
     def test_get_instructions_in_slice_5(self):
-        source = self._get_conditional_source('5')
+        source = self._get_source('5')
         instrs = self._get_instrs_slice(source, 13)
         self.assertEqual(instrs, set([13, 12]))
 
     # Test _get_instructions_in_slice with line 12 as 'a = a'.
     def test_get_instructions_in_slice_a(self):
-        source = self._get_conditional_source('a')
+        source = self._get_source('a')
         instrs = self._get_instrs_slice(source, 13)
         self.assertEqual(instrs, set([13, 12, 5, 4]))
 
     # Test _get_instructions_in_slice with line 12 as 'a = b'.
     def test_get_instructions_in_slice_b(self):
-        source = self._get_conditional_source('b')
+        source = self._get_source('b')
         instrs = self._get_instrs_slice(source, 13)
         self.assertEqual(instrs, set([1, 4, 5, 6, 9, 10, 12, 13]))
 
     # Test _get_instructions_in_slice with line 12 as 'a = c'.
     def test_get_instructions_in_slice_c(self):
-        source = self._get_conditional_source('c')
+        source = self._get_source('c')
         instrs = self._get_instrs_slice(source, 13)
         self.assertEqual(instrs, set([1, 3, 4, 5, 6, 7, 8, 12, 13]))
 
     # Test _get_instructions_in_slice with line 12 as 'a = d'.
     def test_get_instructions_in_slice_d(self):
-        source = self._get_conditional_source('d')
+        source = self._get_source('d')
         instrs = self._get_instrs_slice(source, 13)
         self.assertEqual(instrs, set([1, 4, 5, 6, 7, 9, 10, 11, 12, 13]))
 
     # Test _generate_cfg_slice with line 12 as 'a = 5'.
     def test_generate_cfg_slice_5(self):
-        source = self._get_conditional_source('5')
+        source = self._get_source('5')
         funcA = self._get_cfg_slice(source, lineno=13)
 
         # Function block.
@@ -199,7 +391,7 @@ class TestSliceConditional(TestSlice):
 
     # Test _generate_cfg_slice with line 12 as 'a = a'.
     def test_generate_cfg_slice_a(self):
-        source = self._get_conditional_source('a')
+        source = self._get_source('a')
         funcA = self._get_cfg_slice(source, lineno=13)
 
         # Function block.
@@ -219,7 +411,7 @@ class TestSliceConditional(TestSlice):
 
     # Test _generate_cfg_slice with line 12 as 'a = b'.
     def test_generate_cfg_slice_b(self):
-        source = self._get_conditional_source('b')
+        source = self._get_source('b')
         funcA = self._get_cfg_slice(source, lineno=13)
 
         # Function block.
@@ -239,7 +431,7 @@ class TestSliceConditional(TestSlice):
 
     # Test _generate_cfg_slice with line 12 as 'a = c'.
     def test_generate_cfg_slice_c(self):
-        source = self._get_conditional_source('c')
+        source = self._get_source('c')
         funcA = self._get_cfg_slice(source, lineno=13)
 
         # Function block.
@@ -259,7 +451,7 @@ class TestSliceConditional(TestSlice):
 
     # Test get_slice with line 12 as 'a = d'.
     def test_generate_cfg_slice_d(self):
-        source = self._get_conditional_source('d')
+        source = self._get_source('d')
         funcA = self._get_cfg_slice(source, lineno=13)
 
         # Function block.
@@ -280,7 +472,7 @@ class TestSliceConditional(TestSlice):
     # python3 -m unittest tests.models.test_slice.TestSliceConditional.test_get_slice_5
     # Test get_slice with line 12 as 'a = 5'.
     def test_get_slice_5(self):
-        source = self._get_conditional_source('5')
+        source = self._get_source('5')
         funcA = self._get_slice(source, lineno=13)
 
         # funcA
@@ -289,7 +481,7 @@ class TestSliceConditional(TestSlice):
 
     # Test get_slice with line 12 as 'a = a'.
     def test_get_slice_a(self):
-        source = self._get_conditional_source('a')
+        source = self._get_source('a')
         funcA = self._get_slice(source, lineno=13)
 
         # funcA
@@ -298,7 +490,7 @@ class TestSliceConditional(TestSlice):
 
     # Test get_slice with line 12 as 'a = b'.
     def test_get_slice_b(self):
-        source = self._get_conditional_source('b')
+        source = self._get_source('b')
         funcA = self._get_slice(source, lineno=13)
 
         # funcA
@@ -317,7 +509,7 @@ class TestSliceConditional(TestSlice):
 
     # Test get_slice with line 12 as 'a = c'.
     def test_get_slice_c(self):
-        source = self._get_conditional_source('c')
+        source = self._get_source('c')
         funcA = self._get_slice(source, lineno=13)
 
         # funcA
@@ -336,7 +528,7 @@ class TestSliceConditional(TestSlice):
 
     # Test get_slice with line 12 as 'a = d'.
     def test_get_slice_d(self):
-        source = self._get_conditional_source('d')
+        source = self._get_source('d')
         funcA = self._get_slice(source, lineno=13)
 
         # Function block.
@@ -362,7 +554,7 @@ class TestSliceConditional(TestSlice):
 # Tests loops with Slice class.
 class TestSliceLoops(TestSlice):
 
-    def _get_conditional_source(self, var):
+    def _get_source(self, var):
         source = ('def funcA():\n'                      # line 1
                   '     a = 5\n'                        # line 2
                   '     hpixels = 5\n'                  # line 3
@@ -375,16 +567,16 @@ class TestSliceLoops(TestSlice):
                   '     print(%s)\n' %var)              # line 10
         return source
 
-    # Test _get_variables_in_slice.
-    def test_get_variables_in_slice(self):
-        source = self._get_conditional_source('5')
+    # Test _get_variables_in_func.
+    def test_get_variables_in_func(self):
+        source = self._get_source('5')
         slicemethod = self._get_slice_class(source)
-        variables = slicemethod._get_variables_in_slice()
+        variables = slicemethod._get_variables_in_func()
         self.assertEqual(variables, set(['a', 'hpixels', 'wpixels', 'x', 'y', 'new_var']))
 
     # Test _get_instructions_in_slice with line 10 as 'print(a)'.
     def test_get_instructions_in_slice_a(self):
-        source = self._get_conditional_source('a')
+        source = self._get_source('a')
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([2, 10]))
 
@@ -394,7 +586,7 @@ class TestSliceLoops(TestSlice):
 
     # Test _get_instructions_in_slice with line 10 as 'print(wpixels)'.
     def test_get_instructions_in_slice_wpixels(self):
-        source = self._get_conditional_source('wpixels')
+        source = self._get_source('wpixels')
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([4, 5, 9, 10]))
 
@@ -404,7 +596,7 @@ class TestSliceLoops(TestSlice):
 
     # Test _get_instructions_in_slice with line 10 as 'print(hpixels)'.
     def test_get_instructions_in_slice_hpixels(self):
-        source = self._get_conditional_source('hpixels')
+        source = self._get_source('hpixels')
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([3, 5, 6, 7, 10]))
 
@@ -418,7 +610,7 @@ class TestSliceLoops(TestSlice):
 
     # Test _get_instructions_in_slice with line 8 as 'new_var = 0'.
     def test_get_instructions_in_slice_new_var_line8(self):
-        source = self._get_conditional_source('"NA"')
+        source = self._get_source('"NA"')
         instrs = self._get_instrs_slice(source, 8)
         self.assertEqual(instrs, set([5, 6, 8]))
 
@@ -428,7 +620,7 @@ class TestSliceLoops(TestSlice):
 
     # Test _get_instructions_in_slice with line 10 as 'print(new_var)'.
     def test_get_instructions_in_slice_new_var_line10(self):
-        source = self._get_conditional_source('new_var')
+        source = self._get_source('new_var')
         instrs = self._get_instrs_slice(source, 10)
         self.assertEqual(instrs, set([5, 6, 8, 10]))
 
@@ -438,7 +630,7 @@ class TestSliceLoops(TestSlice):
 
     # Test get_slice with line 10 as 'print(a)'.
     def test_get_slice_a(self):
-        source = self._get_conditional_source('a')
+        source = self._get_source('a')
         funcA = self._get_cfg_slice(source, lineno=10)
 
         # Function block.
@@ -471,7 +663,7 @@ class TestSliceLoops(TestSlice):
     # python3 -m unittest tests.models.test_slice.TestSliceLoops.test_generate_cfg_slice_wpixels
     # Test _generate_cfg_slice with line 9 as 'print(wpixels)'.
     def test_generate_cfg_slice_wpixels(self):
-        source = self._get_conditional_source('wpixels')
+        source = self._get_source('wpixels')
         funcA = self._get_cfg_slice(source, lineno=10)
 
         # Function block.
@@ -503,7 +695,7 @@ class TestSliceLoops(TestSlice):
 
     # Test _generate_cfg_slice with line 10 as 'print(hpixels)'.
     def test_generate_cfg_slice_hpixels(self):
-        source = self._get_conditional_source('hpixels')
+        source = self._get_source('hpixels')
         funcA = self._get_cfg_slice(source, lineno=10)
 
         # Function block.
@@ -535,7 +727,7 @@ class TestSliceLoops(TestSlice):
 
     # Test _generate_cfg_slice with line 10 as 'print(a)'.
     def test_generate_cfg_slice_a(self):
-        source = self._get_conditional_source('a')
+        source = self._get_source('a')
         funcA = self._get_slice(source, lineno=10)
 
         # Function block.
@@ -544,7 +736,7 @@ class TestSliceLoops(TestSlice):
 
     # Test get_slice with line 10 as 'print(hpixels)'.
     def test_get_slice_wpixels(self):
-        source = self._get_conditional_source('wpixels')
+        source = self._get_source('wpixels')
         funcA = self._get_slice(source, lineno=10)
 
         # Function block.
@@ -568,7 +760,7 @@ class TestSliceLoops(TestSlice):
 
     # Test get_slice with line 10 as 'print(hpixels)'.
     def test_get_slice_hpixels(self):
-        source = self._get_conditional_source('hpixels')
+        source = self._get_source('hpixels')
         funcA = self._get_slice(source, lineno=10)
 
         # Function block.
