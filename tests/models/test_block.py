@@ -8,9 +8,70 @@ import unittest
 import ast
 
 from src.globals import *
-from src.models.block import Block, FunctionBlock
+from src.models.block import BlockList, Block, FunctionBlock
 from src.models.instruction import Instruction, InstructionType
 from src.generatecfg import CFGGenerator
+
+
+# Test BlockList class.
+class TestBlockList(unittest.TestCase):
+
+    def setUp(self):
+        self.block_list1 = BlockList()  # funcA
+        self.block_list2 = BlockList()  # funcA
+        self.block_list3 = BlockList()  # funcB
+        self.block_list4 = BlockList()  # no funcs
+        self.block_list5 = BlockList()  # funcA, funcB
+
+        self.funcA = FunctionBlock('funcA')
+        self.funcB = FunctionBlock('funcB')
+        self.block_list1.add(self.funcA)
+        self.block_list2.add(self.funcA)
+        self.block_list3.add(self.funcB)
+        self.block_list5.add(self.funcA)
+        self.block_list5.add(self.funcB)
+
+    def test_to_string(self):
+        result = ('funcA | \n'
+                  '      | successors()\n'
+                  '      | predecessors()\n\n\n')
+        self.assertEqual(str(self.block_list1), result)
+        self.assertEqual(str(self.block_list4), '')
+
+        result = ('funcA | \n'
+                  '      | successors()\n'
+                  '      | predecessors()\n\n\n'
+                  'funcB | \n'
+                  '      | successors()\n'
+                  '      | predecessors()\n\n\n')
+        self.assertEqual(str(self.block_list5), result)
+
+    def test_equals(self):
+        self.assertFalse(self.block_list1 == None)
+        self.assertFalse(self.block_list1 == 1)
+        self.assertEqual(self.block_list1, self.block_list2)
+        self.assertFalse(self.block_list1 == self.block_list3)
+        self.assertFalse(self.block_list1 == self.block_list4)
+        self.assertFalse(self.block_list1 == self.block_list5)
+
+    def test_not_equals(self):
+        self.assertTrue(self.block_list1 != None)
+        self.assertTrue(self.block_list1 != 1)
+        self.assertTrue(self.block_list1 != self.block_list3)
+
+    def test_get_func(self):
+        self.assertEqual(self.block_list1.get_func('funcA'), self.funcA)
+        self.assertEqual(self.block_list1.get_func('funcB'), None)
+
+    def test_funcs(self):
+        self.assertEqual(self.block_list1.get_funcs(), [self.funcA])
+
+    def test_get_num_funcs(self):
+        self.assertEqual(self.block_list1.get_num_funcs(), 1)
+        self.assertEqual(self.block_list2.get_num_funcs(), 1)
+        self.assertEqual(self.block_list3.get_num_funcs(), 1)
+        self.assertEqual(self.block_list4.get_num_funcs(), 0)
+        self.assertEqual(self.block_list5.get_num_funcs(), 2)
 
 
 # Test Block class.
@@ -38,6 +99,21 @@ class TestBlock(unittest.TestCase):
             expected = [predecessor.label for predecessor in predecessors]
             self.assertEqual(actual, set(expected))
 
+    def test_to_string(self):
+        instr = Instruction(lineno=1)
+        instr.referenced.add('varA')
+        instr.defined.add('varB')
+        self.block1.add_instruction(instr)
+
+        label = self.block1.label
+        spaces = ' ' * len(label)
+        result = ('{} | \n'
+                  '{} | successors()\n'
+                  '{} | predecessors()\n'
+                  '\t#1 | REF(varA) DEF(varB)\n').format(label, spaces, spaces)
+        self.assertEqual(str(self.block1), result)
+
+
     def test_labels(self):
         block_label1 = int(self.block1.label[1:])
         block_label2 = int(self.block2.label[1:])
@@ -48,16 +124,38 @@ class TestBlock(unittest.TestCase):
             self.block1.label = 'error_label'
 
     def test_equals(self):
-        self.skipTest('TODO: Implement')
+        self.block2.add_predecessor(self.block1)
+        self.block3.add_predecessor(self.block1)
+        self.block2.add_successor(self.block4)
+        self.block3.add_successor(self.block4)
 
-        # Check where label is different
-        #   - Create 2 different block with same successor, predecessor, instrs
+        self.assertFalse(self.block2 == None)
+        self.assertFalse(self.block2 == 1)
+        self.assertFalse(self.block2 == self.block3)
+        self.assertTrue(self.block2.equals(self.block3))
+
+        instrA = Instruction(lineno=1)
+        instrB = Instruction(lineno=1)
+        instrB.referenced.add('varA')
+        self.block2.add_instruction(instrA)
+        self.block3.add_instruction(instrB)
+        self.assertFalse(self.block2.equals(self.block3))
 
     def test_check_successor_equality(self):
-        self.skipTest('TODO: Implement')
-        # Checks block without any successors.
+        # Checks block with less than 2 successors.
+        self.assertTrue(self.block1.check_successor_equality())
+        self.block1.add_successor(self.block2)
+        self.assertTrue(self.block1.check_successor_equality())
 
         # Checks block with successors.
+        self.block1.add_successor(self.block3)
+        self.block1.add_successor(self.block4)
+        self.assertTrue(self.block1.check_successor_equality())
+
+        # Checks block with different successors.
+        instr = Instruction(lineno=1)
+        self.block4.add_instruction(instr)
+        self.assertFalse(self.block1.check_successor_equality())
 
     def test_add_reference(self):
         self.block1.add_reference(lineno=1, variable='varA')
@@ -114,7 +212,12 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(set(self.block1._instructions.keys()), set([1]))
 
     def test_add_multiline_instructions(self):
-        self.skipTest('TODO: FINISH')
+        instr = Instruction(lineno=1)
+        self.block1.add_instruction(instr)
+        self.assertFalse(self.block1._instructions[1].multiline)
+
+        self.block1.add_multiline_instructions(lineno=1, linenos=[2, 3])
+        self.assertEqual(self.block1._instructions[1].multiline, set([1, 2, 3]))
 
     def test_add_successor(self):
         self.block1.add_successor(self.block1)
@@ -349,6 +452,25 @@ class TestFunctionBlock(unittest.TestCase):
         self.assertEqual(self.func_block1.label, 'func1')
         with self.assertRaises(ValueError) as context:
             self.func_block1.label = 'error_label'
+
+    def test_to_string(self):
+        result = ('func1 | \n'
+                  '      | successors()\n'
+                  '      | predecessors()\n\n')
+        self.assertEqual(str(self.func_block1), result)
+
+        block = Block()
+        self.func_block1.add_successor(block)
+
+        label = block.label
+        spaces = ' ' * len(label)
+        result = ('func1 | \n'
+                  '      | successors({})\n'
+                  '      | predecessors()\n\n'
+                  '{} | \n'
+                  '{} | successors()\n'
+                  '{} | predecessors(func1)\n\n').format(label, label, spaces, spaces)
+        self.assertEqual(str(self.func_block1), result)
 
     def test_get_sorted_blocks(self):
         Block._label_counter.reset()

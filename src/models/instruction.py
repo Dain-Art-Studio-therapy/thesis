@@ -41,17 +41,19 @@ class Instruction(object):
         self.multiline = set()
 
     def __str__(self):
-        string = '#%d | ' %self.lineno
+        string = '#%d |' %self.lineno
         if self.control:
-            string += '(#%d) ' %(self.control)
+            string += ' (#%d)' %(self.control)
         if self.referenced:
-            string += 'REF(%s) ' %(', '.join(self.referenced))
+            string += ' REF(%s)' %(', '.join(sorted(self.referenced)))
         if self.defined:
-            string += 'DEF(%s) ' %(', '.join(self.defined))
+            string += ' DEF(%s)' %(', '.join(sorted(self.defined)))
         if self.multiline:
-            string += 'MULTI(%s) ' %(', '.join(self.multiline))
+            multiline_str = sorted([str(lineno) for lineno in self.multiline])
+            string += ' MULTI(%s)' %(', '.join(multiline_str))
         if self.instruction_type:
-            string += '- %s' %(self.instruction_type.name.lower())
+            instr_name = self.instruction_type.name.lower().split('_')[0]
+            string += ' - %s' %(instr_name)
         return string
 
     def __eq__(self, other):

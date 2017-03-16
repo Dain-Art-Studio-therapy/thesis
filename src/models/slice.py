@@ -344,7 +344,7 @@ class Slice(object):
     # Generates suggestions from a map of range of lineno to list of variables.
     def _generate_suggestions_variable_map(self, lineno_variables_map):
         suggestions = []
-        for key, variables in lineno_variables_map.iteritems():
+        for key, variables in lineno_variables_map.items():
             # Generate message for suggestion.
             message = 'Try creating a new function with parameter'
             if len(variables) == 1:

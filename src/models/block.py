@@ -181,8 +181,9 @@ class BlockInterface(ABC):
     # Adds instruction to multiline.
     def add_multiline_instructions(self, lineno, linenos):
         instruction = self._get_instruction(lineno)
-        for lineno in linenos:
-            instruction.multiline.add(lineno)
+        instruction.multiline.add(lineno)
+        for group_lineno in linenos:
+            instruction.multiline.add(group_lineno)
 
     # Adds a block as a successor and this block as its predecessor.
     def add_successor(self, block):

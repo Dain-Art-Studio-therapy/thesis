@@ -199,12 +199,6 @@ class TestGenerateCFG(unittest.TestCase):
         cfg = self._generate_cfg(source)
         self.assertEqual(cfg.get_num_funcs(), 0)
 
-    def test_add_instruction_info_multiline(self):
-        self.skipTest('TODO: Test')
-
-    def test_add_instruction_info_last_lineno(self):
-        self.skipTest('TODO: Test')
-
     def test_instr_type_return(self):
         source = ('string0 = "hi"\n'
                   'def funcA():\n'
