@@ -32,10 +32,11 @@ class IterativeDataflowAnalysis(ABC):
         self._compute_gen_kill(info, func_gen)
 
         # Compute in and out maps.
+        sorted_blocks = self._get_sorted_blocks(func_block)
         info_cpy = None
         while info != info_cpy:
             info_cpy = copy.deepcopy(info)
-            self._compute_info(info, func_block)
+            self._compute_info(info, sorted_blocks)
 
         return info
 
@@ -67,9 +68,14 @@ class IterativeDataflowAnalysis(ABC):
             # Generate kill map for given block.
             info.kill = NodeInformation.diff_common_keys(func_gen, info.gen)
  
+    # Gets the blocks sorted in the order needed for the analysis.
+    @abstractmethod
+    def _get_sorted_blocks(self, func_block):
+        pass
+
     # Computes the information specific to the iterative data flow.
     @abstractmethod
-    def _compute_info(self, func_block_info, func_block):
+    def _compute_info(self, func_block_info, sorted_blocks):
         pass
 
 
@@ -81,8 +87,11 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
     def __init__(self):
         super(self.__class__, self).__init__(ReachingDefinitions)
 
-    def _compute_info(self, func_block_info, func_block):
-        for block in func_block.get_sorted_blocks():
+    def _get_sorted_blocks(self, func_block):
+        return func_block.get_sorted_blocks()
+
+    def _compute_info(self, func_block_info, sorted_blocks):
+        for block in sorted_blocks:
             info = func_block_info.get_block_info(block)
 
             # Calculate in: Union all predecessors out.

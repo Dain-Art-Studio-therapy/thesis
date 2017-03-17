@@ -110,6 +110,7 @@ class CFGGenerator(ast.NodeVisitor):
     def _init_variables(self):
         self.block_list = BlockList()
         self.current_block = None
+        self.exit_block = None
         self.current_control = None
         self.tokens = None
         self.last_lineno = None
@@ -123,19 +124,25 @@ class CFGGenerator(ast.NodeVisitor):
 
     # Adds information about an instruction to the current block at lineno.
     def _add_instruction_info(self, lineno, var=None, action=None, instr_type=None):
-        if action == TypeVariable.LOAD:
-            self.current_block.add_reference(lineno, var)
-        if action == TypeVariable.STORE:
-            self.current_block.add_definition(lineno, var)
-        if self.current_control:
-            self.current_block.add_instr_control(lineno, self.current_control)
-        if instr_type:
-            self.current_block.add_instruction_type(lineno, instr_type)
-        if lineno in self.tokens.multiline:
-            self.current_block.add_multiline_instructions(
-                lineno, self.tokens.multiline[lineno])
-        if not self.last_lineno or lineno > self.last_lineno:
-            self.last_lineno = lineno
+        if self.current_block:
+            if action == TypeVariable.LOAD:
+                self.current_block.add_reference(lineno, var)
+            if action == TypeVariable.STORE:
+                self.current_block.add_definition(lineno, var)
+            if self.current_control:
+                self.current_block.add_instr_control(lineno, self.current_control)
+            if instr_type:
+                self.current_block.add_instruction_type(lineno, instr_type)
+            if lineno in self.tokens.multiline:
+                self.current_block.add_multiline_instructions(
+                    lineno, self.tokens.multiline[lineno])
+            if not self.last_lineno or lineno > self.last_lineno:
+                self.last_lineno = lineno
+
+    # Adds a successor to the block if it is not null.
+    def _add_successor(self, block, successor):
+        if block:
+            block.add_successor(successor)
 
     # Visits element within node.
     def _visit_item(self, value):
@@ -183,8 +190,10 @@ class CFGGenerator(ast.NodeVisitor):
 
         # Create FunctionBlock.
         func_block = self.current_block = FunctionBlock(node.name)
+        self.exit_block = Block()
         self.block_list.add(self.current_block)
         self.generic_visit(node)
+        self._add_successor(self.current_block, self.exit_block)
 
         # Add blank linenos and comments.
         linenos = set(range(node.lineno, self.last_lineno+1))
@@ -201,7 +210,9 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_Return(self, node):
         self._add_instruction_info(node.lineno, instr_type=InstructionType.RETURN)
+        self._add_successor(self.current_block, self.exit_block)
         self.generic_visit(node)
+        self.current_block = None
 
     # # Delete(expr* targets)
     # def visit_Delete(self, node):
@@ -225,89 +236,63 @@ class CFGGenerator(ast.NodeVisitor):
         self._add_instruction_info(node.lineno, var='print', action=TypeVariable.LOAD)
         self.generic_visit(node)
 
-    # input: For(expr target, expr iter, stmt* body, stmt* orelse)
-    # output: None
-    def visit_For(self, node):
+    # Visits a loop.
+    def _visit_loop(self, conditional_nodes, conditional_lineno, body):
         start_block = self.current_block
+        prev_control = self.current_control
+
         guard_block = Block()
         start_body_block = Block()
         after_block = Block()
-        prev_control = self.current_control
 
         # Add successors/predcessors.
         start_block.add_successor(guard_block)
         guard_block.add_successor(start_body_block)
         guard_block.add_successor(after_block)
 
-        # Add target and iter to current block.
+        # Add conditional to guard block.
         self.current_block = guard_block
-        self._visit_item(node.target)
-        self._visit_item(node.iter)
-        self.current_control = node.target.lineno
+        for node in conditional_nodes:
+            self._visit_item(node)
+        self.current_control = conditional_lineno
 
         # Add body to body block.
         self.current_block = start_body_block
-        self._visit_item(node.body)
-        end_body_block = self.current_block
-        end_body_block.add_successor(guard_block)
+        self._visit_item(body)
+        self._add_successor(self.current_block, guard_block)
 
-        # TODO(ngarg): Figure out orelse in For.
-        # self.generic_visit(node)
+        # TODO: Figure out orelse in For.
 
         self.current_control = prev_control
         self.current_block = after_block
+
+    # input: For(expr target, expr iter, stmt* body, stmt* orelse)
+    # output: None
+    def visit_For(self, node):
+        self._visit_loop([node.target, node.iter], node.target.lineno, node.body)
 
     # input: While(expr test, stmt* body, stmt* orelse)
     # output: None
     def visit_While(self, node):
-        start_block = self.current_block
-        guard_block = Block()
-        start_body_block = Block()
-        after_block = Block()
-        prev_control = self.current_control
-
-        # Add successors/predcessors.
-        start_block.add_successor(guard_block)
-        guard_block.add_successor(start_body_block)
-        guard_block.add_successor(after_block)
-
-        # Add test to current block.
-        self.current_block = guard_block
-        self._visit_item(node.test)
-        self.current_control = node.test.lineno
-
-        # Add body to body block.
-        self.current_block = start_body_block
-        self._visit_item(node.body)
-        end_body_block = self.current_block
-        end_body_block.add_successor(guard_block)
-
-        # TODO(ngarg): Figure out orelse in For.
-        # self.generic_visit(node)
-
-        self.current_control = prev_control
-        self.current_block = after_block
+        self._visit_loop([node.test], node.test.lineno, node.body)
 
     # input: If(expr test, stmt* body, stmt* orelse)
     # output: None
     def visit_If(self, node):
-        start_block = self.current_block
-        start_if_block = Block()
-        after_block = Block()
         prev_control = self.current_control
+        start_block = self.current_block
 
-        # Add successors/predecessors.
-        start_block.add_successor(start_if_block)
-
-        # Add test to current block.
+        # Add conditional to current block.
         self._visit_item(node.test)
         self.current_control = node.test.lineno
 
         # Add body to if block.
+        start_if_block = Block()
+        start_block.add_successor(start_if_block)
         self.current_block = start_if_block
+
         self._visit_item(node.body)
         end_if_block = self.current_block
-        end_if_block.add_successor(after_block)
 
         # Add orelse to else block.
         if node.orelse:
@@ -319,16 +304,20 @@ class CFGGenerator(ast.NodeVisitor):
             if not isinstance(node.orelse[0], _ast.If):
                 lineno = node.orelse[0].lineno - 1
                 self._add_instruction_info(lineno, instr_type=InstructionType.ELSE)
-                self.current_control = (lineno)
+                self.current_control = lineno
 
             self._visit_item(node.orelse)
-            end_if_block = self.current_block
-            end_if_block.add_successor(after_block)
+            end_else_block = self.current_block
         else:
-            start_block.add_successor(after_block)
+            end_else_block = start_block
 
+        # Add after block if all paths don't have a return.
+        if end_if_block or end_else_block:
+            after_block = Block()
+            self._add_successor(end_if_block, after_block)
+            self._add_successor(end_else_block, after_block)
+            self.current_block = after_block
         self.current_control = prev_control
-        self.current_block = after_block
 
     # # With(expr context_expr, expr? optional_vars, stmt* body)
     # def visit_With(self, node):

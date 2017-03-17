@@ -485,12 +485,13 @@ class TestFunctionBlock(unittest.TestCase):
         sorted_blocks = funcA.get_sorted_blocks()
 
         self.assertEqual(sorted_blocks[0].label, 'funcA')
-        self.assertEqual(sorted_blocks[1].label, 'L1')
-        self.assertEqual(sorted_blocks[2].label, 'L2')
-        self.assertEqual(sorted_blocks[3].label, 'L4')
-        self.assertEqual(sorted_blocks[4].label, 'L5')
-        self.assertEqual(sorted_blocks[5].label, 'L6')
-        self.assertEqual(sorted_blocks[6].label, 'L3')
+        self.assertEqual(sorted_blocks[1].label, 'L2')
+        self.assertEqual(sorted_blocks[2].label, 'L3')
+        self.assertEqual(sorted_blocks[3].label, 'L5')
+        self.assertEqual(sorted_blocks[4].label, 'L6')
+        self.assertEqual(sorted_blocks[5].label, 'L7')
+        self.assertEqual(sorted_blocks[6].label, 'L4')
+        self.assertEqual(sorted_blocks[7].label, 'L1')
 
     def test_get_cyclomatic_complexity(self):
         Block._label_counter.reset()
@@ -509,8 +510,8 @@ class TestFunctionBlock(unittest.TestCase):
         funcA = cfg.get_func('funcA')
         sorted_blocks = funcA.get_sorted_blocks()
 
-        self.assertEqual(funcA._get_num_nodes(sorted_blocks), 6)
-        self.assertEqual(funcA._get_num_edges(sorted_blocks), 7)
+        self.assertEqual(funcA._get_num_nodes(sorted_blocks), 7)
+        self.assertEqual(funcA._get_num_edges(sorted_blocks), 8)
         self.assertEqual(funcA._get_num_exits(sorted_blocks, 6), 3)
         self.assertEqual(funcA.get_cyclomatic_complexity(), 7)
 
