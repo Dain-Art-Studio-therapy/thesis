@@ -12,16 +12,22 @@ class NodeInformation(ABC):
     Abstract class containing NodeInformation.
     """
 
-    def __init__(self):
-        self.gen = {}
-        self.kill = {}
-
     def __ne__(self, other):
         return not self == other
 
     @abstractmethod
     def __eq__(self, other):
         pass
+
+    # Determines if two dictionaries are equal to each other.
+    def _is_dict_equal(self, dictA, dictB):
+        if sorted(dictA.keys()) != sorted(dictB.keys()):
+            return False
+
+        for key in dictA.keys():
+            if dictA[key] != dictB[key]:
+                return False
+        return True
 
     # Finds dictA DIFF dictB for the common keys.
     @staticmethod
@@ -62,18 +68,10 @@ class ReachingDefinitions(NodeInformation):
     """
 
     def __init__(self):
-        super(self.__class__, self).__init__()
+        self.gen = {}
+        self.kill = {}
         self.in_node = {}
         self.out_node = {}
-
-    def _is_dict_equal(self, dictA, dictB):
-        if sorted(dictA.keys()) != sorted(dictB.keys()):
-            return False
-
-        for key in dictA.keys():
-            if dictA[key] != dictB[key]:
-                return False
-        return True
 
     def __eq__(self, other):
         if other is None or type(other) != type(self):
@@ -83,6 +81,27 @@ class ReachingDefinitions(NodeInformation):
                 self._is_dict_equal(self.kill, other.kill) and
                 self._is_dict_equal(self.in_node, other.in_node) and
                 self._is_dict_equal(self.out_node, other.out_node))
+
+
+class LiveVariables(NodeInformation):
+    """
+    Live variables for node (either Block or Instruction).
+    """
+
+    def __init__(self):
+        self.defined = set()
+        self.referenced = set()
+        self.in_node = set()
+        self.out_node = set()
+
+    def __eq__(self, other):
+        if other is None or type(other) != type(self):
+            return False
+
+        return (self.defined == other.defined and
+                self.referenced == other.referenced and
+                self.in_node == other.in_node and
+                self.out_node == other.out_node)
 
 
 class FunctionBlockInformation(object):

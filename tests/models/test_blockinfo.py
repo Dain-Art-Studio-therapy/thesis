@@ -7,7 +7,7 @@
 import unittest
 
 from src.globals import *
-from src.models.blockinfo import ReachingDefinitions, FunctionBlockInformation
+from src.models.blockinfo import *
 
 
 # Test ReachingDefinitions class.
@@ -57,6 +57,40 @@ class TestReachingDefinitions(unittest.TestCase):
         self.assertFalse(reachingdef1 == reachingdef2)
         reachingdef2.out_node['a'] = set([('L2', 6)])
         self.assertEqual(reachingdef1, reachingdef1)
+
+
+# Test LiveVariables class.
+class TestLiveVariables(unittest.TestCase):
+
+    def test_equality(self):
+        livevar1 = LiveVariables()
+        livevar2 = LiveVariables()
+        self.assertFalse(livevar1 == None)
+        self.assertFalse(livevar1 == 1)
+
+        # Checks defined set equality.
+        livevar1.defined = set(['a'])
+        self.assertFalse(livevar1 == livevar2)
+        livevar2.defined = set(['a'])
+        self.assertEqual(livevar1, livevar2)
+
+        # Checks referenced set equality.
+        livevar1.referenced = set(['a'])
+        self.assertFalse(livevar1 == livevar2)
+        livevar2.referenced = set(['a'])
+        self.assertEqual(livevar1, livevar2)
+
+        # Checks in_node set equality.
+        livevar1.in_node = set(['a'])
+        self.assertFalse(livevar1 == livevar2)
+        livevar2.in_node = set(['a'])
+        self.assertEqual(livevar1, livevar2)
+
+        # Checks out_node set equality.
+        livevar1.out_node = set(['a'])
+        self.assertFalse(livevar1 == livevar2)
+        livevar2.out_node = set(['a'])
+        self.assertEqual(livevar1, livevar2)
 
 
 # Test FunctionBlockInformation class.

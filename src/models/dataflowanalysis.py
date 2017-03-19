@@ -27,11 +27,10 @@ class IterativeDataflowAnalysis(ABC):
         info = FunctionBlockInformation()
         info.init(func_block, self.block_info_type)
 
-        # Compute gen and kill maps.
-        func_gen = self._compute_func_gen(info)
-        self._compute_gen_kill(info, func_gen)
+        # Compute block information prior to iterative analysis.
+        self._compute_block_info(info)
 
-        # Compute in and out maps.
+        # Compute in and out.
         sorted_blocks = self._get_sorted_blocks(func_block)
         info_cpy = None
         while info != info_cpy:
@@ -40,34 +39,11 @@ class IterativeDataflowAnalysis(ABC):
 
         return info
 
-    # Compute the gen map for a function.
-    def _compute_func_gen(self, func_block_info):
-        func_gen = {}
-        for block, info in func_block_info.blocks():
-            for instruction in block.get_instructions():
-                for variable in instruction.defined:
-                    if not variable in func_gen:
-                        func_gen[variable] = set()
-                    func_gen[variable].add((block.label, instruction.lineno))
-        return func_gen
+    # Computes block informaiton for each block.
+    @abstractmethod
+    def _compute_block_info(self, func_block_info):
+        pass
 
-    # Compute gen and kill maps for each block.
-    def _compute_gen_kill(self, func_block_info, func_gen):
-        for block, info in func_block_info.blocks():
-            # Generate gen map for given block.
-            for instruction in block.get_instructions():
-                for variable in instruction.defined:
-                    info.gen[variable] = set([(block.label, instruction.lineno)])
-
-                # Generate gen and kill map for given instruction.
-                instr_info = func_block_info.get_instruction_info(instruction.lineno)
-                instr_info.gen = {var: set([(block.label, instruction.lineno)])
-                                  for var in instruction.defined}
-                instr_info.kill = NodeInformation.diff_common_keys(func_gen, instr_info.gen)
-
-            # Generate kill map for given block.
-            info.kill = NodeInformation.diff_common_keys(func_gen, info.gen)
- 
     # Gets the blocks sorted in the order needed for the analysis.
     @abstractmethod
     def _get_sorted_blocks(self, func_block):
@@ -87,6 +63,34 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
     def __init__(self):
         super(self.__class__, self).__init__(ReachingDefinitions)
 
+    # Compute the gen map for a function.
+    def _compute_func_gen(self, func_block_info):
+        func_gen = {}
+        for block, info in func_block_info.blocks():
+            for instruction in block.get_instructions():
+                for variable in instruction.defined:
+                    if not variable in func_gen:
+                        func_gen[variable] = set()
+                    func_gen[variable].add((block.label, instruction.lineno))
+        return func_gen
+
+    def _compute_block_info(self, func_block_info):
+        func_gen = self._compute_func_gen(func_block_info)
+        for block, info in func_block_info.blocks():
+            # Generate gen map for given block.
+            for instruction in block.get_instructions():
+                for variable in instruction.defined:
+                    info.gen[variable] = set([(block.label, instruction.lineno)])
+
+                # Generate gen and kill map for given instruction.
+                instr_info = func_block_info.get_instruction_info(instruction.lineno)
+                instr_info.gen = {var: set([(block.label, instruction.lineno)])
+                                  for var in instruction.defined}
+                instr_info.kill = NodeInformation.diff_common_keys(func_gen, instr_info.gen)
+
+            # Generate kill map for given block.
+            info.kill = NodeInformation.diff_common_keys(func_gen, info.gen)
+
     def _get_sorted_blocks(self, func_block):
         return func_block.get_sorted_blocks()
 
@@ -99,7 +103,7 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
                 predecessor_info = func_block_info.get_block_info(predecessor)
                 info.in_node = NodeInformation.union(predecessor_info.out_node, info.in_node)
 
-            # Calculate out: gen UNION (in - kill)
+            # Calculate out: gen UNION (in - kill).
             in_sub_kill = NodeInformation.sub(info.in_node, info.kill)
             info.out_node = NodeInformation.union(info.gen, in_sub_kill)
 
@@ -112,3 +116,55 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
                 in_sub_kill = NodeInformation.sub(instr_info.in_node, instr_info.kill)
                 instr_info.out_node = NodeInformation.union(instr_info.gen, in_sub_kill)
                 prev_info = instr_info.out_node
+
+
+class LiveVariableAnalysis(IterativeDataflowAnalysis):
+    """
+    Determines live variables for each class.
+    """
+
+    def __init__(self):
+        super(self.__class__, self).__init__(LiveVariables)
+
+    def _compute_block_info(self, func_block_info):
+        for block, info in func_block_info.blocks():
+            # Generate defined and referenced sets for given block.
+            for instruction in reversed(block.get_instructions()):
+                # Add to block's referenced and defined.
+                for variable in instruction.defined:
+                    info.defined.add(variable)
+                    if variable in info.referenced:
+                        info.referenced.remove(variable)
+                for variable in instruction.referenced:
+                    info.referenced.add(variable)
+
+                # Generate defined and referenced sets for given instruction.
+                instr_info = func_block_info.get_instruction_info(instruction.lineno)
+                instr_info.defined = instruction.defined
+                instr_info.referenced = instruction.referenced
+
+    def _get_sorted_blocks(self, func_block):
+        return func_block.get_sorted_blocks()[::-1]
+
+    def _compute_info(self, func_block_info, sorted_blocks):
+        for block in sorted_blocks:
+            info = func_block_info.get_block_info(block)
+
+            # Calculate out: Union all successors out.
+            for func_name, successor in block.successors.items():
+                successor_info = func_block_info.get_block_info(successor)
+                info.out_node = successor_info.in_node.union(info.out_node)
+
+            # Calculate in: referenced UNION (out - defined).
+            out_sub_defined = info.out_node - info.defined
+            info.in_node = info.referenced.union(out_sub_defined)
+
+            # Calculate block information for all instructions in the block.
+            prev_info = info.out_node
+            for instr in reversed(block.get_instructions()):
+                instr_info = func_block_info.get_instruction_info(instr.lineno)
+                instr_info.out_node = prev_info
+
+                out_sub_defined = instr_info.out_node - instr_info.defined
+                instr_info.in_node = instr_info.referenced.union(out_sub_defined)
+                prev_info = instr_info.in_node

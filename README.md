@@ -21,7 +21,12 @@
 # Extended TODO List
 ### Questions
 
-1. If a variable is out of scope, should it perform "correctly"?
+1. Should function names be defined variables?
+      - If yes then add recursive tests.
+2. How should I handle:
+      - Functions inside functions
+      - Variables that are referenced but never defined
+3. If a variable is out of scope, should it perform "correctly"?
       - Ex. _get_instructions_in_slice --> var init inside loop, print outside
 
 
