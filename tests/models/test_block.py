@@ -396,6 +396,7 @@ class TestBlock(unittest.TestCase):
         self.assertFalse(self.block1.get_instruction(lineno=2))
 
     def test_get_instruction_linenos(self):
+        self.assertFalse(self.block1.get_instruction_linenos())
         self.block1.add_definition(lineno=1, variable='varB')
         self.block1.add_definition(lineno=2, variable='varA')
         self.assertEqual(self.block1.get_instruction_linenos(), set([1, 2]))
@@ -440,6 +441,7 @@ class TestBlock(unittest.TestCase):
 class TestFunctionBlock(unittest.TestCase):
 
     def setUp(self):
+        Block._label_counter.reset()
         self.func_block1 = FunctionBlock('func1')
         self.generator = CFGGenerator(False)
 
@@ -473,7 +475,6 @@ class TestFunctionBlock(unittest.TestCase):
         self.assertEqual(str(self.func_block1), result)
 
     def test_get_sorted_blocks(self):
-        Block._label_counter.reset()
         source = ('def funcA():\n'
                   '    integers = [[1, 2], [3, 4]]\n'
                   '    for numbers in integers:\n'
@@ -494,7 +495,6 @@ class TestFunctionBlock(unittest.TestCase):
         self.assertEqual(sorted_blocks[7].label, 'L1')
 
     def test_get_cyclomatic_complexity(self):
-        Block._label_counter.reset()
         source = ('def funcA():\n'              # line 1
                   '     i = 3\n'                # line 2
                   '     i = j = i + 1\n'        # line 3
@@ -514,6 +514,51 @@ class TestFunctionBlock(unittest.TestCase):
         self.assertEqual(funcA._get_num_edges(sorted_blocks), 8)
         self.assertEqual(funcA._get_num_exits(sorted_blocks, 6), 3)
         self.assertEqual(funcA.get_cyclomatic_complexity(), 7)
+
+    def test_get_lineno_in_func(self):
+        source = ('def funcA():\n'              # line 1
+                  '     i = 3\n'                # line 2
+                  '     i = j = i + 1\n'        # line 3
+                  '     a = j + 2\n'            # line 4
+                  '     while a > 0:\n'         # line 5
+                  '         i = i + 1\n'        # line 6
+                  '         j = j - 1\n'        # line 7
+                  '\n'                          # line 8
+                  '         if i != j:\n'       # line 9
+                  '             a = a - 1\n'    # line 10
+                  '         i = i + 1')         # line 11
+
+        cfg = self._generate_cfg(source)
+        funcA = cfg.get_func('funcA')
+
+        linenos = funcA.get_linenos_in_func()
+        self.assertEqual(len(linenos), 10)
+        self.assertEqual(linenos, [1, 2, 3, 4, 5, 6, 7, 9, 10, 11])
+
+    def test_get_function_parameters(self):
+        # No instruction in function.
+        self.assertEqual(self.func_block1.get_function_parameters(), None)
+
+        # Function without parameters.
+        source = ('def funcA():\n'
+                  '    pass\n')
+        cfg = self._generate_cfg(source)
+        funcA = cfg.get_func('funcA')
+        self.assertEqual(funcA.get_function_parameters(), None)
+
+        # Function with 1 parameter.
+        source = ('def funcA(x):\n'
+                  '    pass\n')
+        cfg = self._generate_cfg(source)
+        funcA = cfg.get_func('funcA')
+        self.assertEqual(funcA.get_function_parameters(), set(['x']))
+
+        # Function with parameters.
+        source = ('def funcA(x, y):\n'
+                  '    pass\n')
+        cfg = self._generate_cfg(source)
+        funcA = cfg.get_func('funcA')
+        self.assertEqual(funcA.get_function_parameters(), set(['x', 'y']))
 
 
 if __name__ == '__main__':

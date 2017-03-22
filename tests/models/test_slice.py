@@ -312,6 +312,9 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
 # Tests Slice generating suggestions related helper functions.
 class TestSliceGenerateSuggestionsFuncs(TestSlice):
 
+    def test_get_referenced_variables(self):
+        self.skipTest('TODO: Implement')
+
     def test_generate_suggestions_variable_map(self):
         self.skipTest('TODO: Implement')
 
@@ -501,7 +504,6 @@ class TestSliceConditional(TestSlice):
         block = block.successors['L8']
         self.assertBlockEqual(block, predecessors=['L7'])
 
-    # python3 -m unittest tests.models.test_slice.TestSliceConditional.test_get_slice_5
     # Test get_slice with line 12 as 'a = 5'.
     def test_get_slice_5(self):
         source = self._get_source('5')
@@ -568,7 +570,7 @@ class TestSliceConditional(TestSlice):
 
 
 # Tests loops with Slice class.
-class TestSliceLoops(TestSlice):
+class TestSliceForLoops(TestSlice):
 
     def _get_source(self, var):
         source = ('def funcA():\n'                      # line 1
@@ -802,6 +804,21 @@ class TestSliceLoops(TestSlice):
         after_block_1 = guard_block_1.successors['L13']
         self.assertBlockEqual(after_block_1, predecessors=['L8'], linenos=[10])
 
+
+# Tests conditionals with a return statement with Slice class.
+class TestSliceConditionalReturn(TestSlice):
+
+    # TODO: Decide code and make a test suite for code.
+    def test_conditional_with_return(self):
+        self.skipTest('TODO: MAKE TESTS')
+
+
+# Tests loops with Slice class.
+class TestSliceWhileLoops(TestSlice):
+
+    # TODO: Decide code and make a test suite for code.
+    def test_while_loop(self):
+        self.skipTest('TODO: MAKE TESTS')
 
 if __name__ == '__main__':
      unittest.main()

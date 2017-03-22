@@ -226,7 +226,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['x'], instruction_type=InstructionType.RETURN)
         self.assertBlockPredecessorsEqual(func_block)
@@ -490,7 +490,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['x'], instruction_type=InstructionType.RETURN)
         self.assertBlockPredecessorsEqual(func_block)
@@ -511,7 +511,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
         self.assertBlockPredecessorsEqual(func_block)
@@ -544,7 +544,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
         self.assertBlockPredecessorsEqual(func_block)
@@ -578,7 +578,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
         self.assertBlockPredecessorsEqual(func_block)
@@ -617,7 +617,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
         self.assertBlockPredecessorsEqual(func_block)
@@ -658,7 +658,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y', 'z'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y', 'z'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
         self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
         self.assertBlockPredecessorsEqual(func_block)
@@ -700,7 +700,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
@@ -734,7 +734,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
@@ -768,7 +768,7 @@ class TestGenerateCFG(unittest.TestCase):
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
-        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
@@ -816,7 +816,7 @@ class TestGenerateCFG(unittest.TestCase):
         cfg = self._generate_cfg(source)
         block = cfg.get_func('funcA')
 
-        self.assertInstrEqual(block.get_instruction(1), defined=['y'])
+        self.assertInstrEqual(block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(block.get_instruction(2), defined=['x'], multiline=set([2, 3, 4]))
         self.assertInstrEqual(block.get_instruction(5), defined=['z'], referenced=['y'], multiline=set([5, 6]))
         self.assertInstrEqual(block.get_instruction(6), referenced=['y'], multiline=set([5, 6]))

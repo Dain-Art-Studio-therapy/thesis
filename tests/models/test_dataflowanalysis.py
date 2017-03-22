@@ -62,8 +62,10 @@ class TestReachingDefinitionsAnalysis(TestIterativeDataflowAnalysis):
         self._generate_cfg()
         analysismethod = ReachingDefinitionsAnalysis()
         info = FunctionBlockInformation()
+
         info.init(self.funcA, ReachingDefinitions)
-        analysismethod._compute_block_info(info)
+        func_gen = analysismethod._compute_func_gen(info)
+        analysismethod._compute_block_info(info, func_gen)
 
         # funcA block.
         cur_block_info = info.get_block_info(self.funcA)
@@ -116,8 +118,10 @@ class TestReachingDefinitionsAnalysis(TestIterativeDataflowAnalysis):
         self._generate_cfg()
         analysismethod = ReachingDefinitionsAnalysis()
         info = FunctionBlockInformation()
+
         info.init(self.funcA, ReachingDefinitions)
-        analysismethod._compute_block_info(info)
+        func_gen = analysismethod._compute_func_gen(info)
+        analysismethod._compute_block_info(info, func_gen)
 
         # Line 2.
         cur_instr_info = info.get_instruction_info(2)
@@ -309,8 +313,10 @@ class TestLiveVariableAnalysis(TestIterativeDataflowAnalysis):
         self._generate_cfg()
         analysismethod = LiveVariableAnalysis()
         info = FunctionBlockInformation()
+
         info.init(self.funcA, LiveVariables)
-        analysismethod._compute_block_info(info)
+        func_gen = analysismethod._compute_func_gen(info)
+        analysismethod._compute_block_info(info, func_gen)
 
         # funcA block.
         cur_block_info = info.get_block_info(self.funcA)
@@ -357,8 +363,10 @@ class TestLiveVariableAnalysis(TestIterativeDataflowAnalysis):
         self._generate_cfg()
         analysismethod = LiveVariableAnalysis()
         info = FunctionBlockInformation()
+
         info.init(self.funcA, LiveVariables)
-        analysismethod._compute_block_info(info)
+        func_gen = analysismethod._compute_func_gen(info)
+        analysismethod._compute_block_info(info, func_gen)
 
         # Line 2.
         cur_instr_info = info.get_instruction_info(2)
@@ -505,7 +513,7 @@ class TestLiveVariableAnalysis(TestIterativeDataflowAnalysis):
         source = ('def funcA(x, y, z, c, d):\n' # line 1
                   '     while c < 5:\n'         # line 2
                   '         x = y + 1\n'        # line 3
-                  '         y = 2 * z\n'        # line 4
+                  '         y = mult_2(z)\n'    # line 4
                   '         if d:\n'            # line 5
                   '             x = y + z\n'    # line 6
                   '         z = 1\n'            # line 7

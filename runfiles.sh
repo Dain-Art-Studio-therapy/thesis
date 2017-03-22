@@ -18,9 +18,10 @@
 python -m src.decomposer codesample/student_solution/hw5/19/cast.py
 python -m src.decomposer codesample/professor_solution/hw5/cast.py
 
-python -m src.decomposer codesample/student_solution/hw5/26/cast.py
 python -m src.decomposer codesample/student_solution/hw5/18/cast.py
+python -m src.decomposer codesample/student_solution/hw5/26/cast.py
 python -m src.decomposer codesample/student_solution/hw5/27/cast.py
+python -m src.decomposer codesample/student_solution/hw5/33/cast.py
 
 # # All authors put functions inside functions.
 # python -m src.decomposer codesample/python2/hw4_cast_1.py

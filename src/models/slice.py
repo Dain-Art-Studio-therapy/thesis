@@ -9,7 +9,7 @@ import copy
 
 from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
-from src.models.dataflowanalysis import ReachingDefinitionsAnalysis
+from src.models.dataflowanalysis import *
 
 
 class Suggestion(object):
@@ -48,25 +48,25 @@ class Slice(object):
 
     MIN_DIFF_COMPLEXITY = 3
     MAX_DIFF_FOR_GROUPING = 2
+    MAX_VARIABLES_PARAMETER = 6
     MIN_LINES_FOR_SUGGESTION = 3
+    MIN_LINES_OF_FUNC_NOT_IN_SUGGESTION = 5
 
     def __init__(self, func):
         self.func = func
         analysismethod = ReachingDefinitionsAnalysis()
-        self.info = analysismethod.analyze(self.func)
+        self.reaching_def_info = analysismethod.analyze(self.func)
+
+        analysismethod = LiveVariableAnalysis()
+        self.live_var_info = analysismethod.analyze(self.func)
 
         # Caches data about func_block.
         self.sorted_blocks = self.func.get_sorted_blocks()
-        self.linenos = self._get_linenos_in_func()
+        self.linenos = self.func.get_linenos_in_func()
         self.variables = self._get_variables_in_func()
 
         # Global caches.
         self._SLICE_CACHE = {}
-
-    # Gets the line numbers in a function.
-    def _get_linenos_in_func(self):
-        return sorted([lineno for block in self.sorted_blocks
-                              for lineno in block.get_instruction_linenos()])
 
     # Gets the variables in a function.
     def _get_variables_in_func(self):
@@ -94,12 +94,12 @@ class Slice(object):
         while queue:
             # Get instruction.
             cur_lineno = queue.pop()
-            instr = self.info.get_instruction(cur_lineno)
+            instr = self.reaching_def_info.get_instruction(cur_lineno)
 
             # If instruction is a valid instruction.
             if instr and cur_lineno not in visited:
                 # Get instruction info and add to slice.
-                instr_info = self.info.get_instruction_info(cur_lineno)
+                instr_info = self.reaching_def_info.get_instruction_info(cur_lineno)
 
                 # Trace line numbers of referenced variables.
                 for var in instr.referenced:
@@ -310,7 +310,7 @@ class Slice(object):
     def _adjust_linenos_multiline_groups(self, linenos, slice_map):
         final_linenos = set()
         for lineno in linenos:
-            instr = self.info.get_instruction(lineno)
+            instr = self.reaching_def_info.get_instruction(lineno)
             valid_lines = [group_lineno not in slice_map or group_lineno in linenos
                            for group_lineno in instr.multiline]
             if all(valid_lines):
@@ -341,25 +341,52 @@ class Slice(object):
     # ---------- GENERATES SUGGESTIONS ---------------
     # ----------------------------------------------
 
+    # Gets the length of the range of the line numbers.
+    def _range(self, min_lineno, max_lineno):
+        return max_lineno - min_lineno + 1
+
+    # Determines if the suggestion is valid.
+    def _is_valid_suggestion(self, variables, min_lineno, max_lineno):
+        variables = set(variables)
+        num_instrs = len(self.linenos) - self._range(min_lineno, max_lineno)
+        return (len(variables) <= Slice.MAX_VARIABLES_PARAMETER and
+                num_instrs >= Slice.MIN_LINES_OF_FUNC_NOT_IN_SUGGESTION and
+                variables != self.func.get_function_parameters())
+
+    # Gets the variables referenced in range of line numbers.
+    def _get_referenced_variables(self, min_lineno, max_lineno):
+        variables = set()
+        defined = set()
+        for lineno in range(min_lineno, max_lineno+1):
+            instr_info = self.live_var_info.get_instruction_info(lineno)
+            if instr_info:
+                for var in instr_info.referenced:
+                    if var not in defined:
+                        variables.add(var)
+                for var in instr_info.defined:
+                    defined.add(var)
+        return sorted(list(variables))
+
     # Generates suggestions from a map of range of lineno to list of variables.
     def _generate_suggestions_variable_map(self, lineno_variables_map):
         suggestions = []
-        for key, variables in lineno_variables_map.items():
-            # Generate message for suggestion.
-            message = 'Try creating a new function with parameter'
-            if len(variables) == 1:
-                message += ' {}'.format(variables[0])
-            else:
-                message += 's {}'.format(', '.join(variables))
+        for min_lineno, max_lineno in lineno_variables_map:
+            variables = self._get_referenced_variables(min_lineno, max_lineno)
 
-            # Add suggestion.
-            min_lineno, max_lineno = key
-            suggestions.append(Suggestion(message, self.func.label, min_lineno, max_lineno))
+            # Generate message if the number of vars within max vars in func.
+            if self._is_valid_suggestion(variables, min_lineno, max_lineno):
+                message = 'Try creating a new function with parameter'
+                if len(variables) == 1:
+                    message += ' {}'.format(variables[0])
+                else:
+                    message += 's {}'.format(', '.join(variables))
+
+                suggestions.append(Suggestion(message, self.func.label, min_lineno, max_lineno))
         return suggestions
 
-    # Gets the suggestions on a slice based on removing variables.
+    # Gets suggestions based on removing variables.
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
-        suggestions_map = {}
+        suggestions = set()
 
         # Gets map of linenos to variables to generate suggestions.
         for var in self.variables:
@@ -368,25 +395,63 @@ class Slice(object):
                                                Slice.MIN_DIFF_COMPLEXITY,
                                                Slice.MAX_DIFF_FOR_GROUPING)
 
-            # Iterates through groups of linenos.
+            # Adds groups of linenos.
             for group in linenos:
                 if len(group) >= Slice.MIN_LINES_FOR_SUGGESTION:
-                    key = (min(group), max(group))
-                    if key not in suggestions_map:
-                        suggestions_map[key] = []
-                    suggestions_map[key].append(var)
+                    suggestions.add((min(group), max(group)))
+        return suggestions
 
-        # Returns list of suggestions from suggestions map.
-        return self._generate_suggestions_variable_map(suggestions_map)
+    # Gets suggestions based on similar references in a block.
+    def _get_suggestions_similar_ref_block(self, debug=False):
+        suggestions = set()
 
+        for block in self.sorted_blocks:
+            prev_ref_set = set()
+            min_lineno = None
+            max_lineno = None
+
+            # Finds similar references in consequtive lines within a block.
+            for instr in block.get_instructions():
+                if not instr.referenced or instr.referenced != prev_ref_set:
+                    if len(instr.referenced) > 1:
+                        if (min_lineno and (self._range(min_lineno, max_lineno) >=
+                                            Slice.MIN_LINES_FOR_SUGGESTION)):
+                            suggestions.add((min_lineno, max_lineno))
+                    min_lineno = instr.lineno
+                max_lineno = instr.lineno
+                prev_ref_set = instr.referenced
+        return suggestions
+
+    # TODO: Add "hint" to suggestions.
     # Gets the suggestions on how to improve the function.
     def get_suggestions(self, debug=False):
-        suggestions = []
+        suggestions = set()
         slice_map = self.get_slice_map()
 
-        suggestions.extend(self._get_suggestions_remove_variables(slice_map, debug))
+        suggestions |= self._get_suggestions_remove_variables(slice_map, debug)
+        suggestions |= self._get_suggestions_similar_ref_block(debug)
+        final_suggestions = self._generate_suggestions_variable_map(suggestions)
 
-        return sorted(suggestions)
+        # self.func = self.condense_cfg(self.func)
+        # analysismethod = LiveVariableAnalysis()
+        # self.live_var_info = analysismethod.analyze(self.func)
+
+        # print("")
+        # print("--------------------------")
+        # print("------{}-----".format(self.func.label))
+        # print("--------------------------")
+        # print(self.func)
+        # for func, info in self.live_var_info.blocks():
+        #     print(func.label)
+        #     print("\tREF {}".format(info.referenced))
+        #     print("\tDEF {}".format(info.defined))
+        #     print("\tIN  {}".format(info.in_node))
+        #     print("\tOUT {}".format(info.out_node))
+        #     print("")
+        # print("")
+        # print("")
+
+        return sorted(final_suggestions)
 
     # Gets the complexity for each line multiplied by line number.
     def get_lineno_complexity(self, debug=True):

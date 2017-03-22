@@ -21,31 +21,18 @@
 # Extended TODO List
 ### Questions
 
-1. Should function names be defined variables?
+1. Questions: Live Variable Analysis
+      - Should suggestions be based on live variable analysis?
+          - If so, can I only print suggestions with less than 6 variables?
+      - Can live variable analysis ignore anything not defined in the func?
+          - Removes function names, etc.
+2. Should function names be defined variables?
       - If yes then add recursive tests.
-2. How should I handle:
+3. How should I handle:
       - Functions inside functions
       - Variables that are referenced but never defined
-3. If a variable is out of scope, should it perform "correctly"?
+4. If a variable is out of scope, should it perform "correctly"?
       - Ex. _get_instructions_in_slice --> var init inside loop, print outside
-
-
-### Test Cases to Add
-
-1. `block.py`:
-      - `BlockList`: `__eq__`, `__ne__`
-      - `BlockList`: `get_func` (return None), `get_funcs`, `get_num_funcs`
-      - `Block`: `__eq__` (instrs not equal)
-2. `slice.py`:
-      - lines 98-99 (test block with 3 successors)
-      - lines 130-131
-      - while loop example
-      - `return` in middle of function (ex. if [case]: return False)
-3. `generate_cfg.py`:
-      - iterating through functions in a class
-      - `return` in middle of function (ex. if [case]: return False)
-4. `dataflowanalysis.py`
-      - params in function header
 
 
 ### Features to Add in Type Checker
@@ -69,18 +56,3 @@
 2. Handle functions within a class.
 3. Handle functions within functions (hw4 #31).
 
-
-### Thoughts When Looking Over Code
-
-1. Missing `return` in a particular path
-2. Reassigning saved variables in python (ex. in, dir) - #10
-3. Similar lines of code - #11, #15, #2
-4. Repeating functions imported by another file - #12
-5. Wonky tabbing - #12
-6. Repeated code across functions - #12
-   (Detect similar CFG structure b/w functions - # degree of similarity)
-7. Amount of comments
-8. Large if <return> else <block code> - #13
-9. Amount of spacing - #14
-10. Average length of functions - #18
-11. Editing a variable defined in a loop header

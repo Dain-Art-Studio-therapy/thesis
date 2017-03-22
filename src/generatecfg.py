@@ -190,8 +190,13 @@ class CFGGenerator(ast.NodeVisitor):
 
         # Create FunctionBlock.
         func_block = self.current_block = FunctionBlock(node.name)
+        self._add_instruction_info(node.lineno, instr_type=InstructionType.FUNCTION_HEADER)
+
+        # Create exit block.
         self.exit_block = Block()
         self.block_list.add(self.current_block)
+
+        # Visit function information.
         self.generic_visit(node)
         self._add_successor(self.current_block, self.exit_block)
 

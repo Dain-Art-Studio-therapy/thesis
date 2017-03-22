@@ -9,7 +9,7 @@ import copy
 
 from src.globals import *
 from src.models.counter import Counter
-from src.models.instruction import Instruction
+from src.models.instruction import Instruction, InstructionType
 
 
 class BlockList(object):
@@ -337,6 +337,21 @@ class FunctionBlock(BlockInterface):
             if self_block != other_block:
                 return False
         return True
+
+    # Returns the number of instructions.
+    def get_linenos_in_func(self):
+        instrs = []
+        for block in self.get_sorted_blocks():
+            instrs.extend(sorted(block.get_instruction_linenos()))
+        return instrs
+
+    # Gets function parameters.
+    def get_function_parameters(self):
+        if self._instructions:
+            instr = self._instructions[sorted(list(self._instructions.keys()))[0]]
+            if instr.instruction_type == InstructionType.FUNCTION_HEADER and instr.defined:
+                return instr.defined
+        return None
 
     # Gets topologically sorted blocks.
     def get_sorted_blocks(self):

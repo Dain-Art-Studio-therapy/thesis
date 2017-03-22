@@ -28,7 +28,8 @@ class IterativeDataflowAnalysis(ABC):
         info.init(func_block, self.block_info_type)
 
         # Compute block information prior to iterative analysis.
-        self._compute_block_info(info)
+        func_gen = self._compute_func_gen(info)
+        self._compute_block_info(info, func_gen)
 
         # Compute in and out.
         sorted_blocks = self._get_sorted_blocks(func_block)
@@ -39,9 +40,20 @@ class IterativeDataflowAnalysis(ABC):
 
         return info
 
+    # Computes the gen map for a function.
+    def _compute_func_gen(self, func_block_info):
+        func_gen = {}
+        for block, info in func_block_info.blocks():
+            for instruction in block.get_instructions():
+                for variable in instruction.defined:
+                    if not variable in func_gen:
+                        func_gen[variable] = set()
+                    func_gen[variable].add((block.label, instruction.lineno))
+        return func_gen
+
     # Computes block informaiton for each block.
     @abstractmethod
-    def _compute_block_info(self, func_block_info):
+    def _compute_block_info(self, func_block_info, func_gen):
         pass
 
     # Gets the blocks sorted in the order needed for the analysis.
@@ -63,19 +75,7 @@ class ReachingDefinitionsAnalysis(IterativeDataflowAnalysis):
     def __init__(self):
         super(self.__class__, self).__init__(ReachingDefinitions)
 
-    # Compute the gen map for a function.
-    def _compute_func_gen(self, func_block_info):
-        func_gen = {}
-        for block, info in func_block_info.blocks():
-            for instruction in block.get_instructions():
-                for variable in instruction.defined:
-                    if not variable in func_gen:
-                        func_gen[variable] = set()
-                    func_gen[variable].add((block.label, instruction.lineno))
-        return func_gen
-
-    def _compute_block_info(self, func_block_info):
-        func_gen = self._compute_func_gen(func_block_info)
+    def _compute_block_info(self, func_block_info, func_gen):
         for block, info in func_block_info.blocks():
             # Generate gen map for given block.
             for instruction in block.get_instructions():
@@ -126,22 +126,25 @@ class LiveVariableAnalysis(IterativeDataflowAnalysis):
     def __init__(self):
         super(self.__class__, self).__init__(LiveVariables)
 
-    def _compute_block_info(self, func_block_info):
+    def _compute_block_info(self, func_block_info, func_gen):
         for block, info in func_block_info.blocks():
             # Generate defined and referenced sets for given block.
             for instruction in reversed(block.get_instructions()):
-                # Add to block's referenced and defined.
-                for variable in instruction.defined:
-                    info.defined.add(variable)
-                    if variable in info.referenced:
-                        info.referenced.remove(variable)
-                for variable in instruction.referenced:
-                    info.referenced.add(variable)
-
-                # Generate defined and referenced sets for given instruction.
                 instr_info = func_block_info.get_instruction_info(instruction.lineno)
-                instr_info.defined = instruction.defined
-                instr_info.referenced = instruction.referenced
+
+                # Adds defined variables to instruction and block.
+                for variable in instruction.defined:
+                    if variable in func_gen:
+                        info.defined.add(variable)
+                        instr_info.defined.add(variable)
+                        if variable in info.referenced:
+                            info.referenced.remove(variable)
+
+                # Adds referenced variables to instruction and block.
+                for variable in instruction.referenced:
+                    if variable in func_gen:
+                        info.referenced.add(variable)
+                        instr_info.referenced.add(variable)
 
     def _get_sorted_blocks(self, func_block):
         return func_block.get_sorted_blocks()[::-1]

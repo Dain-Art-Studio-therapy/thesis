@@ -10,10 +10,11 @@ from src.globals import *
 
 
 class InstructionType(Enum):
-    __order__ = 'RETURN, ELSE, BLANK_LINE'
+    __order__ = 'RETURN, ELSE, BLANK_LINE, FUNCTION_HEADER'
     RETURN = 1
     ELSE = 2
     BLANK_LINE = 3
+    FUNCTION_HEADER = 4
 
 
 class Instruction(object):
@@ -52,7 +53,7 @@ class Instruction(object):
             multiline_str = sorted([str(lineno) for lineno in self.multiline])
             string += ' MULTI(%s)' %(', '.join(multiline_str))
         if self.instruction_type:
-            instr_name = self.instruction_type.name.lower().split('_')[0]
+            instr_name = ' '.join(self.instruction_type.name.lower().split('_'))
             string += ' - %s' %(instr_name)
         return string
 
