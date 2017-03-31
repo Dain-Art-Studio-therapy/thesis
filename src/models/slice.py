@@ -4,12 +4,14 @@
 # Python Version: 3.5
 
 
+from src.globals import *
 from numpy import array, diff, where, split
 import copy
 
 from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
 from src.models.dataflowanalysis import *
+from src.models.structures import Queue
 
 
 class Suggestion(object):
@@ -50,7 +52,8 @@ class Slice(object):
     MAX_DIFF_FOR_GROUPING = 2
     MAX_VARIABLES_PARAMETER = 6
     MIN_LINES_FOR_SUGGESTION = 3
-    MIN_LINES_OF_FUNC_NOT_IN_SUGGESTION = 5
+    MIN_LINES_FUNC_NOT_IN_SUGGESTION = 5
+    MAX_DIFF_REF_LIVE_VAR = 4
 
     def __init__(self, func):
         self.func = func
@@ -84,42 +87,37 @@ class Slice(object):
     # Gets set of line numbers in a slice.
     def _get_instructions_in_slice(self, start_lineno, **kwargs):
         visited = set()
-        queue = [start_lineno]
-        min_lineno = start_lineno
+        queue = Queue()
+        queue.enqueue(start_lineno)
 
         # Parse keyword arguments.
-        include_control = kwargs['include_control'] if 'include_control' in kwargs else True
-        exclude_vars = kwargs['exclude_vars'] if 'exclude_vars' in kwargs else {}
+        include_control = kwargs.get('include_control', True)
+        exclude_vars = kwargs.get('exclude_vars', {})
 
-        while queue:
+        while not queue.empty():
             # Get instruction.
-            cur_lineno = queue.pop()
+            cur_lineno = queue.dequeue()
             instr = self.reaching_def_info.get_instruction(cur_lineno)
 
-            # If instruction is a valid instruction.
+            # Process instruction if it has not been visited.
             if instr and cur_lineno not in visited:
-                # Get instruction info and add to slice.
                 instr_info = self.reaching_def_info.get_instruction_info(cur_lineno)
 
-                # Trace line numbers of referenced variables.
+                # Trace line numbers of referenced variables except:
+                #   - Variables only referenced in func (e.g. function names).
+                #   - Variables in exclude_vars.
                 for var in instr.referenced:
-                    # Exclude function names, variables only referenced,
-                    # and variables in exclude_vars.
                     if var in instr_info.in_node and var not in exclude_vars:
-                        for block_label, lineno in instr_info.in_node[var]:
-                            queue.append(lineno)
-                            min_lineno = min(lineno, min_lineno)
+                        for _, lineno in instr_info.in_node[var]:
+                            queue.enqueue(lineno)
 
                 # Add line wraps.
                 for lineno in instr.multiline:
-                    queue.append(lineno)
-                    min_lineno = min(lineno, min_lineno)
+                    queue.enqueue(lineno)
 
-                # Trace line numbers of control variables if include_control is True
-                # or a line before control is referenced.
-                if (instr.control and (instr.control not in visited) and
-                    (include_control or instr.control > min_lineno)):
-                    queue.append(instr.control)
+                # Add control if include_control or a line before control is referenced.
+                if instr.control and (include_control or instr.control > queue.min()):
+                    queue.enqueue(instr.control)
 
             # Mark current instruction as visited.
             visited.add(cur_lineno)
@@ -127,8 +125,7 @@ class Slice(object):
         # Returns set of line numbers instructions.
         return visited
 
-    # Creates a FunctionBlock representing a CFG from a
-    # set of instructions in sorted blocks.
+    # Creates a FunctionBlock representing a CFG from a set of instruction linenos.
     def _generate_cfg_slice(self, slice_instrs):
         block_map = {} # function block number : slice block number
         slice_func = FunctionBlock(self.func.label)
@@ -279,44 +276,46 @@ class Slice(object):
     # ---------- COMPARES SLICE MAPS ---------------
     # ----------------------------------------------
 
-    # Groups line numbers with greater than max diff between slices.
-    def _group_linenos(self, linenos, max_diff_linenos):
-        generate_group = lambda linenos, max_diff: (
-            split(linenos, where(diff(linenos) >= max_diff)[0] + 1))
-
-        # Group line numbers.
-        linenos = sorted(linenos)
-        groups = generate_group(linenos, max_diff_linenos)
-
-        # Determine if comments/blank lines connect groups.
-        if len(groups) > 1:
-            unimportant_in_func = self.func.blank_lines.union(self.func.comments)
-            for leftgroup, rightgroup in zip(groups[:-1], groups[1:]):
-                minval = max(leftgroup) + 1
-                maxval = min(rightgroup)
-                range_linenos = set(range(minval, maxval))
-
-                # Add linenos with comments/blank lines.
-                unimportant = range_linenos.intersection(unimportant_in_func)
-                if len(unimportant) == len(range_linenos):
-                    linenos.extend(list(range_linenos))
-
-            # Regenerate groups of line numbers.
-            linenos = sorted(linenos)
-            groups = generate_group(linenos, max_diff_linenos)
-        return groups
-
+    # TODO: REVIEW!!!
+    # TODO: Any suggestions with else should include if.
+    #       if instr.instruction_type == 'ELSE'
+    #       include 'IF' and 'ELSE_IF' (loop)
+    #       TODO: Test with if/else_if/else_if/else
+    # TODO: Make sure any loop body or if/else body stays with the condition.
     # Adjust line numbers based on multiline groups.
-    def _adjust_linenos_multiline_groups(self, linenos, slice_map):
+    def _adjust_linenos_multiline_groups(self, linenos, unimportant_linenos):
         final_linenos = set()
-        for lineno in linenos:
-            instr = self.reaching_def_info.get_instruction(lineno)
-            valid_lines = [group_lineno not in slice_map or group_lineno in linenos
-                           for group_lineno in instr.multiline]
+        for cur_lineno in linenos:
+            instr = self.reaching_def_info.get_instruction(cur_lineno)
+            valid_lines = [lineno in unimportant_linenos or lineno in linenos
+                           for lineno in instr.multiline]
             if all(valid_lines):
-                final_linenos.add(lineno)
+                final_linenos.add(cur_lineno)
                 final_linenos |= instr.multiline
         return final_linenos
+
+    # Groups line numbers with greater than max diff between slices.
+    def _generate_groups(self, linenos, max_diff_linenos):
+        linenos = sorted(linenos)
+        return split(linenos, where(diff(linenos) >= max_diff_linenos)[0] + 1)
+
+    # Groups line numbers with greater than max diff between slices.
+    # Adds comments/blank lines to connect groups.
+    def _group_linenos(self, linenos, max_diff_linenos, unimportant_linenos):
+        groups = self._generate_groups(linenos, max_diff_linenos)
+
+        # Connects groups separated by comments/blank lines.
+        if len(groups) > 1:
+            for leftgroup, rightgroup in zip(groups[:-1], groups[1:]):
+                linenos_in_gap = set(range(max(leftgroup)+1, min(rightgroup)))
+
+                # Add linenos if all linenos in gap are comments/blank lines.
+                unimportant = linenos_in_gap.intersection(unimportant_linenos)
+                if len(unimportant) == len(linenos_in_gap):
+                    linenos |= linenos_in_gap
+
+            groups = self._generate_groups(linenos, max_diff_linenos)
+        return groups
 
     # Gets groups of line numbers with greater than max diff between slices.
     def _compare_slice_maps(self, slice_map, reduced_slice_map,
@@ -334,55 +333,13 @@ class Slice(object):
                     linenos.add(lineno)
 
         # Groups line numbers within the epsilon of each other.
-        linenos = self._adjust_linenos_multiline_groups(linenos, slice_map)
-        return self._group_linenos(linenos, max_diff_linenos)
+        unimportant_linenos = self.func.blank_lines.union(self.func.comments)
+        linenos = self._adjust_linenos_multiline_groups(linenos, unimportant_linenos)
+        return self._group_linenos(linenos, max_diff_linenos, unimportant_linenos)
 
-    # ----------------------------------------------
-    # ---------- GENERATES SUGGESTIONS ---------------
-    # ----------------------------------------------
-
-    # Gets the length of the range of the line numbers.
-    def _range(self, min_lineno, max_lineno):
-        return max_lineno - min_lineno + 1
-
-    # Determines if the suggestion is valid.
-    def _is_valid_suggestion(self, variables, min_lineno, max_lineno):
-        variables = set(variables)
-        num_instrs = len(self.linenos) - self._range(min_lineno, max_lineno)
-        return (len(variables) <= Slice.MAX_VARIABLES_PARAMETER and
-                num_instrs >= Slice.MIN_LINES_OF_FUNC_NOT_IN_SUGGESTION and
-                variables != self.func.get_function_parameters())
-
-    # Gets the variables referenced in range of line numbers.
-    def _get_referenced_variables(self, min_lineno, max_lineno):
-        variables = set()
-        defined = set()
-        for lineno in range(min_lineno, max_lineno+1):
-            instr_info = self.live_var_info.get_instruction_info(lineno)
-            if instr_info:
-                for var in instr_info.referenced:
-                    if var not in defined:
-                        variables.add(var)
-                for var in instr_info.defined:
-                    defined.add(var)
-        return sorted(list(variables))
-
-    # Generates suggestions from a map of range of lineno to list of variables.
-    def _generate_suggestions_variable_map(self, lineno_variables_map):
-        suggestions = []
-        for min_lineno, max_lineno in lineno_variables_map:
-            variables = self._get_referenced_variables(min_lineno, max_lineno)
-
-            # Generate message if the number of vars within max vars in func.
-            if self._is_valid_suggestion(variables, min_lineno, max_lineno):
-                message = 'Try creating a new function with parameter'
-                if len(variables) == 1:
-                    message += ' {}'.format(variables[0])
-                else:
-                    message += 's {}'.format(', '.join(variables))
-
-                suggestions.append(Suggestion(message, self.func.label, min_lineno, max_lineno))
-        return suggestions
+    # -----------------------------------------------------
+    # ---------- GENERATES SUGGESTION TYPES ---------------
+    # -----------------------------------------------------
 
     # Gets suggestions based on removing variables.
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
@@ -422,37 +379,116 @@ class Slice(object):
                 prev_ref_set = instr.referenced
         return suggestions
 
-    # TODO: Add "hint" to suggestions.
+    # Gets suggestions based on differences in live var and referenced in a block.
+    def _get_suggestions_diff_reference_livevar_block(self, debug=False):
+        suggestions = set()
+        linenos = set()
+
+        for block in self.sorted_blocks:
+            info = self.live_var_info.get_block_info(block)
+
+            if (len(info.in_node) - len(info.referenced)) > Slice.MAX_DIFF_REF_LIVE_VAR:
+                linenos |= block.get_instruction_linenos()
+            else:
+                if len(linenos) >= Slice.MIN_LINES_FOR_SUGGESTION:
+                    suggestions.add((min(linenos), max(linenos)))
+                linenos = set()
+
+        return suggestions
+
+    # ------------------------------------------------
+    # ---------- GENERATES SUGGESTIONS ---------------
+    # ------------------------------------------------
+
+    # Gets the length of the range of the line numbers.
+    def _range(self, min_lineno, max_lineno):
+        return max_lineno - min_lineno + 1
+
+    # Determines if the suggestion is valid.
+    def _is_valid_suggestion(self, variables, min_lineno, max_lineno):
+        variables = set(variables)
+        lines_suggestions = self._range(min_lineno, max_lineno)
+        lines_func = len(self.linenos) - lines_suggestions
+
+        return (len(variables) <= Slice.MAX_VARIABLES_PARAMETER and
+                lines_suggestions >= Slice.MIN_LINES_FOR_SUGGESTION and
+                lines_func >= Slice.MIN_LINES_FUNC_NOT_IN_SUGGESTION and
+                variables != self.func.get_function_parameters())
+
+    # Gets the variables referenced in range of line numbers.
+    def _get_referenced_variables(self, min_lineno, max_lineno):
+        variables = set()
+        defined = set()
+        for lineno in range(min_lineno, max_lineno+1):
+            instr_info = self.live_var_info.get_instruction_info(lineno)
+            if instr_info:
+                for var in instr_info.referenced:
+                    if var not in defined:
+                        variables.add(var)
+                for var in instr_info.defined:
+                    defined.add(var)
+        return sorted(list(variables))
+
+    # Creates the message for a suggestion.
+    def _get_suggestion_message(self, variables):
+        message = 'Try creating a new function with parameter'
+        if len(variables) == 1:
+            message += ' {}'.format(variables[0])
+        else:
+            message += 's {}'.format(', '.join(variables))
+        return message
+
+    # Generates suggestions from a map of range of lineno to list of variables.
+    def _generate_suggestions(self, lineno_ranges):
+        suggestions = []
+        for min_lineno, max_lineno in lineno_ranges:
+            variables = self._get_referenced_variables(min_lineno, max_lineno)
+
+            # Generate message if the number of vars within max vars in func.
+            if self._is_valid_suggestion(variables, min_lineno, max_lineno):
+                message = self._get_suggestion_message(variables)
+                suggestions.append(Suggestion(message, self.func.label,
+                                              min_lineno, max_lineno))
+        return suggestions
+
+    # TODO: Each function should return suggestions, hint.
+    # TODO: Compile the suggestions in this function.
     # Gets the suggestions on how to improve the function.
     def get_suggestions(self, debug=False):
         suggestions = set()
         slice_map = self.get_slice_map()
 
+        # Get the suggestions through various methods.
         suggestions |= self._get_suggestions_remove_variables(slice_map, debug)
         suggestions |= self._get_suggestions_similar_ref_block(debug)
-        final_suggestions = self._generate_suggestions_variable_map(suggestions)
+        suggestions |= self._get_suggestions_diff_reference_livevar_block(debug)
 
-        # self.func = self.condense_cfg(self.func)
-        # analysismethod = LiveVariableAnalysis()
-        # self.live_var_info = analysismethod.analyze(self.func)
-
-        # print("")
-        # print("--------------------------")
-        # print("------{}-----".format(self.func.label))
-        # print("--------------------------")
-        # print(self.func)
-        # for func, info in self.live_var_info.blocks():
-        #     print(func.label)
-        #     print("\tREF {}".format(info.referenced))
-        #     print("\tDEF {}".format(info.defined))
-        #     print("\tIN  {}".format(info.in_node))
-        #     print("\tOUT {}".format(info.out_node))
-        #     print("")
-        # print("")
-        # print("")
-
+        # Generate list of final suggestions.
+        final_suggestions = self._generate_suggestions(suggestions)
         return sorted(final_suggestions)
 
+    # TODO: REMOVE.
+    def print_live_var_data(self):
+        self.func = self.condense_cfg(self.func)
+        analysismethod = LiveVariableAnalysis()
+        self.live_var_info = analysismethod.analyze(self.func)
+
+        print("")
+        print("--------------------------")
+        print("------{}-----".format(self.func.label))
+        print("--------------------------")
+        print(self.func)
+        for func, info in self.live_var_info.blocks():
+            print(func.label)
+            print("\tREF {}".format(sorted(list(info.referenced))))
+            print("\tDEF {}".format(sorted(list(info.defined))))
+            print("\tIN  {}".format(sorted(list(info.in_node))))
+            print("\tOUT {}".format(sorted(list(info.out_node))))
+            print("")
+        print("")
+        print("")
+
+    # TODO: REMOVE (or refactor).
     # Gets the complexity for each line multiplied by line number.
     def get_lineno_complexity(self, debug=True):
         slice_map = self.get_slice_map()
@@ -460,5 +496,6 @@ class Slice(object):
         for idx, lineno in enumerate(sorted(slice_map.keys())):
             reduced_slice_complexity = slice_map[lineno]['complexity']
             lineno_complexity += (reduced_slice_complexity * idx)
-        lineno_complexity = float(lineno_complexity) / (idx + 1)
+        length = len(slice_map.keys()) + 1
+        lineno_complexity = float(lineno_complexity) / length
         return lineno_complexity

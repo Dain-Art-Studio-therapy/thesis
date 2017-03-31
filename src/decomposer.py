@@ -84,6 +84,7 @@ def main():
         if suggestions:
             for suggestion in suggestions:
                 print("\t{}".format(suggestion))
+        # func_slice.print_live_var_data()
 
         # Total complexity.
         total_complexity += func_complexity
