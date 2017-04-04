@@ -6,12 +6,21 @@
 
 from src.globals import *
 from numpy import array, diff, where, split
+from enum import Enum
 import copy
 
 from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
 from src.models.dataflowanalysis import *
 from src.models.structures import Queue
+
+
+class SuggestionType(Enum):
+    __order__ = 'REMOVE_VAR, SIMILAR_REF, DIFF_REF_LIVAR'
+    REMOVE_VAR = 1
+    SIMILAR_REF = 2
+    DIFF_REF_LIVAR = 3
+
 
 
 class Suggestion(object):
@@ -356,7 +365,7 @@ class Slice(object):
             for group in linenos:
                 if len(group) >= Slice.MIN_LINES_FOR_SUGGESTION:
                     suggestions.add((min(group), max(group)))
-        return suggestions
+        return suggestions, SuggestionType.REMOVE_VAR
 
     # Gets suggestions based on similar references in a block.
     def _get_suggestions_similar_ref_block(self, debug=False):
@@ -377,14 +386,14 @@ class Slice(object):
                     min_lineno = instr.lineno
                 max_lineno = instr.lineno
                 prev_ref_set = instr.referenced
-        return suggestions
+        return suggestions, SuggestionType.SIMILAR_REF
 
     # Gets suggestions based on differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
         suggestions = set()
         linenos = set()
 
-        for block in self.sorted_blocks:
+        for block in reversed(self.sorted_blocks):
             info = self.live_var_info.get_block_info(block)
 
             if (len(info.in_node) - len(info.referenced)) > Slice.MAX_DIFF_REF_LIVE_VAR:
@@ -393,8 +402,7 @@ class Slice(object):
                 if len(linenos) >= Slice.MIN_LINES_FOR_SUGGESTION:
                     suggestions.add((min(linenos), max(linenos)))
                 linenos = set()
-
-        return suggestions
+        return suggestions, SuggestionType.DIFF_REF_LIVAR
 
     # ------------------------------------------------
     # ---------- GENERATES SUGGESTIONS ---------------
@@ -430,8 +438,17 @@ class Slice(object):
         return sorted(list(variables))
 
     # Creates the message for a suggestion.
-    def _get_suggestion_message(self, variables):
-        message = 'Try creating a new function with parameter'
+    def _get_suggestion_message(self, variables, types):
+        message = ''
+
+        # Add suggestion types to message.
+        message += '('
+        message += ', '.join([suggestion_type.name.lower()
+                             for suggestion_type in types])
+        message += ')'
+
+        # Add parameters to message.
+        message += ' Try creating a new function with parameter'
         if len(variables) == 1:
             message += ' {}'.format(variables[0])
         else:
@@ -439,32 +456,51 @@ class Slice(object):
         return message
 
     # Generates suggestions from a map of range of lineno to list of variables.
-    def _generate_suggestions(self, lineno_ranges):
+    def _generate_suggestions(self, suggestion_map):
         suggestions = []
-        for min_lineno, max_lineno in lineno_ranges:
+        for key, types in suggestion_map.items():
+            min_lineno, max_lineno = key
             variables = self._get_referenced_variables(min_lineno, max_lineno)
 
             # Generate message if the number of vars within max vars in func.
             if self._is_valid_suggestion(variables, min_lineno, max_lineno):
-                message = self._get_suggestion_message(variables)
+                message = self._get_suggestion_message(variables, types)
                 suggestions.append(Suggestion(message, self.func.label,
                                               min_lineno, max_lineno))
         return suggestions
+
+    # Adds suggestions to suggestion map.
+    def _add_suggestion_map(self, suggestion_map, suggestions, suggestion_type):
+        for suggestion in suggestions:
+            if suggestion not in suggestion_map:
+                suggestion_map[suggestion] = set()
+            suggestion_map[suggestion].add(suggestion_type)
+
+    # Adds suggestions of function type to suggestion map.
+    def _add_suggestions(self, suggestion_map, func, **kwargs):
+        suggestions, suggestion_type = func(kwargs)
+        self._add_suggestion_map(suggestion_map, suggestions, suggestion_type)
 
     # TODO: Each function should return suggestions, hint.
     # TODO: Compile the suggestions in this function.
     # Gets the suggestions on how to improve the function.
     def get_suggestions(self, debug=False):
-        suggestions = set()
+        suggestion_map = {}
         slice_map = self.get_slice_map()
 
         # Get the suggestions through various methods.
-        suggestions |= self._get_suggestions_remove_variables(slice_map, debug)
-        suggestions |= self._get_suggestions_similar_ref_block(debug)
-        suggestions |= self._get_suggestions_diff_reference_livevar_block(debug)
+        self._add_suggestions(suggestion_map,
+                              func=self._get_suggestions_remove_variables,
+                              slice_map=slice_map, debug=debug)
+        self._add_suggestions(suggestion_map,
+                              func=self._get_suggestions_similar_ref_block,
+                              debug=debug)
+        self._add_suggestions(suggestion_map,
+                              func=self._get_suggestions_diff_reference_livevar_block,
+                              debug=debug)
 
         # Generate list of final suggestions.
-        final_suggestions = self._generate_suggestions(suggestions)
+        final_suggestions = self._generate_suggestions(suggestion_map)
         return sorted(final_suggestions)
 
     # TODO: REMOVE.

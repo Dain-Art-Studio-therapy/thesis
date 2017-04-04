@@ -330,6 +330,12 @@ class TestSliceGenerateSuggestionsFuncs(TestSlice):
     def test_get_suggestions_remove_variables(self):
         self.skipTest('TODO: Implement')
 
+    def test_add_suggestion_map(self):
+        self.skipTest('TODO: Implement')
+
+    def test_add_suggestions(self):
+        self.skipTest('TODO: Implement')
+
     def test_get_suggestions(self):
         self.skipTest('TODO: Implement')
 
