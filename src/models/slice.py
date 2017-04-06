@@ -287,11 +287,6 @@ class Slice(object):
     # ----------------------------------------------
 
     # TODO: REVIEW!!!
-    # TODO: Any suggestions with else should include if.
-    #       if instr.instruction_type == 'ELSE'
-    #       include 'IF' and 'ELSE_IF' (loop)
-    #       TODO: Test with if/else_if/else_if/else
-    # TODO: Make sure any loop body or if/else body stays with the condition.
     # Adjust line numbers based on multiline groups.
     def _adjust_linenos_multiline_groups(self, linenos, unimportant_linenos):
         final_linenos = set()
@@ -499,7 +494,7 @@ class Slice(object):
 
     # Adds suggestions of function type to suggestion map.
     def _add_suggestions(self, suggestion_map, func, **kwargs):
-        suggestions, suggestion_type = func(kwargs)
+        suggestions, suggestion_type = func(**kwargs)
         self._add_suggestion_map(suggestion_map, suggestions, suggestion_type)
 
     # TODO: Each function should return suggestions, hint.
