@@ -155,6 +155,15 @@ class TestGenerateTokens(unittest.TestCase):
         self.assertEqual(tokens.multiline[12], set([12, 13]))
         self.assertEqual(tokens.multiline[13], set([12, 13]))
 
+    def test_get_indentation(self):
+        pass
+
+    def test_get_line_indentation(self):
+        pass
+
+    def test_get_conditionals(self):
+        pass
+
 
 class TestGenerateCFG(unittest.TestCase):
 
@@ -291,21 +300,21 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_conditional_simple_if_elif_else(self):
-        source = ('def funcA():\n'
-                  '    x = int(input("enter test score:"))\n'
-                  '    if x < 70:\n'
-                  '        print("You need to retake the class.")\n'
-                  '    elif x < 85:\n'
-                  '        print("You have room for improvement.")\n'
-                  '    else:\n'
-                  '        print("Great job!")\n'
-                  '        print("Testing multi-line else")\n')
+        source = ('def funcA():\n'                                      # line 1
+                  '    x = int(input("enter test score:"))\n'           # line 2
+                  '    if x < 70:\n'                                    # line 3
+                  '        print("You need to retake the class.")\n'    # line 4
+                  '    elif x < 85:\n'                                  # line 5
+                  '        print("You have room for improvement.")\n'   # line 6
+                  '    else:\n'                                         # line 7
+                  '        print("Great job!")\n'                       # line 8
+                  '        print("Testing multi-line else")\n')         # line 9
         cfg = self._generate_cfg(source)
         func_block = cfg.get_func('funcA')
 
         self.assertEqual(func_block.label, 'funcA')
         self.assertInstrEqual(func_block.get_instruction(2), referenced=['int', 'input'], defined=['x'])
-        self.assertInstrEqual(func_block.get_instruction(3), referenced=['x'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['x'], multiline=[3, 5, 7])
         self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
 
         if_block_1 = func_block.successors['L2']
@@ -314,7 +323,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(if_block_1, ['L7'])
 
         else_block_1 = func_block.successors['L3']
-        self.assertInstrEqual(else_block_1.get_instruction(5), referenced=['x'], control=3)
+        self.assertInstrEqual(else_block_1.get_instruction(5), referenced=['x'], control=3, multiline=[3, 5, 7])
         self.assertBlockPredecessorsEqual(else_block_1, ['funcA'])
         self.assertBlockSuccessorsEqual(else_block_1, ['L4', 'L5'])
 
@@ -324,7 +333,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(if_block_2, ['L6'])
 
         else_block_2 = else_block_1.successors['L5']
-        self.assertInstrEqual(else_block_2.get_instruction(7), instruction_type=InstructionType.ELSE, control=5)
+        self.assertInstrEqual(else_block_2.get_instruction(7), instruction_type=InstructionType.ELSE, control=5, multiline=[3, 5, 7])
         self.assertInstrEqual(else_block_2.get_instruction(8), referenced=['print'], control=7)
         self.assertInstrEqual(else_block_2.get_instruction(9), referenced=['print'], control=7)
         self.assertBlockPredecessorsEqual(else_block_2, ['L3'])
@@ -546,7 +555,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
         self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
-        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'], multiline=[3, 5])
         self.assertBlockPredecessorsEqual(func_block)
         self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
 
@@ -556,7 +565,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(if_block, ['L1'])
 
         else_block = func_block.successors['L3']
-        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.ELSE, control=3)
+        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.ELSE, control=3, multiline=[3, 5])
         self.assertInstrEqual(else_block.get_instruction(6), referenced=['x'], instruction_type=InstructionType.RETURN, control=5)
         self.assertBlockPredecessorsEqual(else_block, ['funcA'])
         self.assertBlockSuccessorsEqual(else_block, ['L1'])
@@ -580,7 +589,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
         self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
-        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'], multiline=[3, 5])
         self.assertBlockPredecessorsEqual(func_block)
         self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
 
@@ -590,7 +599,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(if_block, ['L4'])
 
         else_block = func_block.successors['L3']
-        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.ELSE, control=3)
+        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.ELSE, control=3, multiline=[3, 5])
         self.assertInstrEqual(else_block.get_instruction(6), referenced=['x'], instruction_type=InstructionType.RETURN, control=5)
         self.assertBlockPredecessorsEqual(else_block, ['funcA'])
         self.assertBlockSuccessorsEqual(else_block, ['L1'])
@@ -619,7 +628,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
         self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
-        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'], multiline=[3, 5])
         self.assertBlockPredecessorsEqual(func_block)
         self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
 
@@ -629,7 +638,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(if_block, ['L1'])
 
         else_block = func_block.successors['L3']
-        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.ELSE, control=3)
+        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.ELSE, control=3, multiline=[3, 5])
         self.assertInstrEqual(else_block.get_instruction(6), referenced=['x', 'print'], control=5)
         self.assertBlockPredecessorsEqual(else_block, ['funcA'])
         self.assertBlockSuccessorsEqual(else_block, ['L4'])
@@ -660,7 +669,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
         self.assertInstrEqual(func_block.get_instruction(1), defined=['y', 'z'], instruction_type=InstructionType.FUNCTION_HEADER)
         self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
-        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'], multiline=[3, 5, 7])
         self.assertBlockPredecessorsEqual(func_block)
         self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
 
@@ -670,7 +679,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(if_block, ['L1'])
 
         else_cond_block = func_block.successors['L3']
-        self.assertInstrEqual(else_cond_block.get_instruction(5), referenced=['z'], control=3)
+        self.assertInstrEqual(else_cond_block.get_instruction(5), referenced=['z'], control=3, multiline=[3, 5, 7])
         self.assertBlockPredecessorsEqual(else_cond_block, ['funcA'])
         self.assertBlockSuccessorsEqual(else_cond_block, ['L4', 'L5'])
 
@@ -680,7 +689,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(elif_block, ['L1'])
 
         else_block = else_cond_block.successors['L5']
-        self.assertInstrEqual(else_block.get_instruction(7), instruction_type=InstructionType.ELSE, control=5)
+        self.assertInstrEqual(else_block.get_instruction(7), instruction_type=InstructionType.ELSE, control=5, multiline=[3, 5, 7])
         self.assertInstrEqual(else_block.get_instruction(8), referenced=['x'], instruction_type=InstructionType.RETURN, control=7)
         self.assertBlockPredecessorsEqual(else_block, ['L3'])
         self.assertBlockSuccessorsEqual(else_block, ['L1'])

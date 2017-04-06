@@ -18,13 +18,25 @@
 # # python -m src.decomposer codesample/student_solution/hw5/19/cast.py
 # # python -m src.decomposer codesample/professor_solution/hw5/cast.py
 
-python -m src.decomposer codesample/student_solution/hw5/18/cast.py
 # # python -m src.decomposer codesample/student_solution/hw5/26/cast.py
 # # python -m src.decomposer codesample/student_solution/hw5/27/cast.py
-# # python -m src.decomposer codesample/student_solution/hw5/33/cast.py
 
 # # All authors put functions inside functions.
 # python -m src.decomposer codesample/python2/hw4_cast_1.py
 # python -m src.decomposer codesample/student_solution/hw5/1/cast.py
 # python -m src.decomposer codesample/student_solution/hw5/30/cast.py
 # python -m src.decomposer codesample/student_solution/hw5/58/cast.py
+
+
+# Generally problematic files.
+python -m src.decomposer codesample/student_solution/hw5/3/cast.py
+python -m src.decomposer codesample/student_solution/hw5/10/cast.py
+python -m src.decomposer codesample/student_solution/hw5/11/cast.py
+python -m src.decomposer codesample/student_solution/hw5/18/cast.py
+
+# # Not fully working for diff_ref_livar.
+# python -m src.decomposer codesample/student_solution/hw5/33/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/34/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/37/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/39/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/52/cast.py

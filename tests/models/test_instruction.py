@@ -31,10 +31,6 @@ class TestInstruction(unittest.TestCase):
         instr1.multiline.add(2)
         self.assertEqual(str(instr1), '#1 | REF(x, z) DEF(y) MULTI(1, 2)')
 
-        # Test instruction 2 (blank line).
-        instr2.instruction_type = InstructionType.BLANK_LINE
-        self.assertEqual(str(instr2), '#3 | - blank line')
-
         # Test instruction 3 (return x) with control line 1.
         instr3.control = 1
         instr3.referenced.add('x')

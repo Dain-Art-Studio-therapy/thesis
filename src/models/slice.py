@@ -66,6 +66,7 @@ class Slice(object):
 
     def __init__(self, func):
         self.func = func
+        self.func = self.condense_cfg(self.func)
         analysismethod = ReachingDefinitionsAnalysis()
         self.reaching_def_info = analysismethod.analyze(self.func)
 
@@ -392,16 +393,36 @@ class Slice(object):
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
         suggestions = set()
         linenos = set()
+        multiline = set()
+        cur_control = set()
+        exclude_control = set()
 
         for block in reversed(self.sorted_blocks):
             info = self.live_var_info.get_block_info(block)
+            instrs = set()
 
-            if (len(info.in_node) - len(info.referenced)) > Slice.MAX_DIFF_REF_LIVE_VAR:
-                linenos |= block.get_instruction_linenos()
+            # Get properities of the block.
+            for instr in block.get_instructions():
+                cur_control.add(instr.control)
+                multiline |= instr.multiline
+                instrs.add(instr.lineno)
+
+            # Only continue building suggestion if any instrs depending on
+            # current block's instrs are included in linenos variable.
+            if ((len(info.in_node) - len(info.referenced)) > Slice.MAX_DIFF_REF_LIVE_VAR
+                and not instrs.intersection(exclude_control)):
+                linenos |= instrs
             else:
-                if len(linenos) >= Slice.MIN_LINES_FOR_SUGGESTION:
+                intersection = multiline.intersection(linenos)
+                # Only add if all lines in the multiline group are in linenos.
+                if (len(linenos) >= Slice.MIN_LINES_FOR_SUGGESTION and
+                    (len(intersection) == len(multiline) or not intersection)):
                     suggestions.add((min(linenos), max(linenos)))
+                exclude_control |= cur_control
+
                 linenos = set()
+                multiline = set()
+                cur_control = set()
         return suggestions, SuggestionType.DIFF_REF_LIVAR
 
     # ------------------------------------------------

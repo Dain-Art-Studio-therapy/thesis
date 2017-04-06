@@ -14,4 +14,4 @@ playspace/sample_code/
 playspace/sample_code/*/*/*.py
 
 # Temporary output files.
-output*
+output

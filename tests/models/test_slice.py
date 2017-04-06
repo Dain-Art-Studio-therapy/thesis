@@ -391,7 +391,7 @@ class TestSliceConditional(TestSlice):
     def test_get_instructions_in_slice_c(self):
         source = self._get_source('c')
         instrs = self._get_instrs_slice(source, 13)
-        self.assertEqual(instrs, set([1, 3, 4, 5, 6, 7, 8, 12, 13]))
+        self.assertEqual(instrs, set([1, 3, 4, 5, 6, 7, 8, 9, 12, 13]))
 
     # Test _get_instructions_in_slice with line 12 as 'a = d'.
     def test_get_instructions_in_slice_d(self):
@@ -415,13 +415,9 @@ class TestSliceConditional(TestSlice):
         block = funcA.successors['L6']
         self.assertBlockEqual(block, predecessors=['funcA'], successors=['L7'])
 
-        # After block.
+        # After/exit block.
         block = block.successors['L7']
-        self.assertBlockEqual(block, predecessors=['L5', 'L6'], successors=['L8'], linenos=[12, 13])
-
-        # Exit block.
-        block = block.successors['L8']
-        self.assertBlockEqual(block, predecessors=['L7'])
+        self.assertBlockEqual(block, predecessors=['L5', 'L6'], linenos=[12, 13])
 
     # Test _generate_cfg_slice with line 12 as 'a = a'.
     def test_generate_cfg_slice_a(self):
@@ -439,13 +435,9 @@ class TestSliceConditional(TestSlice):
         block = funcA.successors['L6']
         self.assertBlockEqual(block, predecessors=['funcA'], successors=['L7'])
 
-        # After block.
+        # After/exit block.
         block = block.successors['L7']
-        self.assertBlockEqual(block, predecessors=['L5', 'L6'], successors=['L8'], linenos=[12, 13])
-
-        # Exit block.
-        block = block.successors['L8']
-        self.assertBlockEqual(block, predecessors=['L7'])
+        self.assertBlockEqual(block, predecessors=['L5', 'L6'], linenos=[12, 13])
 
     # Test _generate_cfg_slice with line 12 as 'a = b'.
     def test_generate_cfg_slice_b(self):
@@ -465,11 +457,7 @@ class TestSliceConditional(TestSlice):
 
         # After block.
         block = block.successors['L7']
-        self.assertBlockEqual(block, predecessors=['L5', 'L6'], successors=['L8'], linenos=[12, 13])
-
-        # Exit block.
-        block = block.successors['L8']
-        self.assertBlockEqual(block, predecessors=['L7'])
+        self.assertBlockEqual(block, predecessors=['L5', 'L6'], linenos=[12, 13])
 
     # Test _generate_cfg_slice with line 12 as 'a = c'.
     def test_generate_cfg_slice_c(self):
@@ -485,15 +473,11 @@ class TestSliceConditional(TestSlice):
 
         # Else conditional.
         block = funcA.successors['L6']
-        self.assertBlockEqual(block, predecessors=['funcA'], successors=['L7'])
+        self.assertBlockEqual(block, predecessors=['funcA'], successors=['L7'], linenos=[9])
 
         # After block.
         block = block.successors['L7']
-        self.assertBlockEqual(block, predecessors=['L5', 'L6'], successors=['L8'], linenos=[12, 13])
-
-        # Exit block.
-        block = block.successors['L8']
-        self.assertBlockEqual(block, predecessors=['L7'])
+        self.assertBlockEqual(block, predecessors=['L5', 'L6'], linenos=[12, 13])
 
     # Test get_slice with line 12 as 'a = d'.
     def test_generate_cfg_slice_d(self):
@@ -513,11 +497,7 @@ class TestSliceConditional(TestSlice):
 
         # After block.
         block = block.successors['L7']
-        self.assertBlockEqual(block, predecessors=['L5', 'L6'], successors=['L8'], linenos=[12, 13])
-
-        # Exit block.
-        block = block.successors['L8']
-        self.assertBlockEqual(block, predecessors=['L7'])
+        self.assertBlockEqual(block, predecessors=['L5', 'L6'], linenos=[12, 13])
 
     # Test get_slice with line 12 as 'a = 5'.
     def test_get_slice_5(self):
@@ -553,15 +533,19 @@ class TestSliceConditional(TestSlice):
         funcA = self._get_slice(source, lineno=13)
 
         # Function block.
-        self.assertBlockEqual(funcA, successors=['L5', 'L7'], linenos=[1, 3, 4, 5, 6])
+        self.assertBlockEqual(funcA, successors=['L5', 'L6'], linenos=[1, 3, 4, 5, 6])
 
         # If conditional.
         block = funcA.successors['L5']
         self.assertBlockEqual(block, successors=['L7'], predecessors=['funcA'], linenos=[7, 8])
 
+        # Else conditional.
+        block = funcA.successors['L6']
+        self.assertBlockEqual(block, successors=['L7'], predecessors=['funcA'], linenos=[9])
+
         # After block.
         block = block.successors['L7']
-        self.assertBlockEqual(block, predecessors=['funcA', 'L5'], linenos=[12, 13])
+        self.assertBlockEqual(block, predecessors=['L5', 'L6'], linenos=[12, 13])
 
     # Test get_slice with line 12 as 'a = d'.
     def test_get_slice_d(self):
@@ -671,31 +655,23 @@ class TestSliceForLoops(TestSlice):
 
         # Guard block 1.
         guard_block_1 = funcA.successors['L8']
-        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L12'], successors=['L9', 'L13'])
-
-        # Body block 1.
-        body_block_1 = guard_block_1.successors['L9']
-        self.assertBlockEqual(body_block_1, predecessors=['L8'], successors=['L10'])
+        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L11'], successors=['L9', 'L12'])
 
         # Guard block 2.
-        guard_block_2 = body_block_1.successors['L10']
-        self.assertBlockEqual(guard_block_2, predecessors=['L9', 'L11'], successors=['L11', 'L12'])
+        guard_block_2 = guard_block_1.successors['L9']
+        self.assertBlockEqual(guard_block_2, predecessors=['L8', 'L10'], successors=['L10', 'L11'])
 
         # Body block 2.
-        body_block_2 = guard_block_2.successors['L11']
-        self.assertBlockEqual(body_block_2, predecessors=['L10'], successors=['L10'])
+        body_block_2 = guard_block_2.successors['L10']
+        self.assertBlockEqual(body_block_2, predecessors=['L9'], successors=['L9'])
 
         # After block 2.
-        after_block_2 = guard_block_2.successors['L12']
-        self.assertBlockEqual(after_block_2, predecessors=['L10'], successors=['L8'])
+        after_block_2 = guard_block_2.successors['L11']
+        self.assertBlockEqual(after_block_2, predecessors=['L9'], successors=['L8'])
 
         # After block 1.
-        after_block_1 = guard_block_1.successors['L13']
-        self.assertBlockEqual(after_block_1, predecessors=['L8'], successors=['L14'], linenos=[10])
-
-        # Exit block.
-        exit_block = after_block_1.successors['L14']
-        self.assertBlockEqual(exit_block, predecessors=['L13'])
+        after_block_1 = guard_block_1.successors['L12']
+        self.assertBlockEqual(after_block_1, predecessors=['L8'], linenos=[10])
 
     # Test _generate_cfg_slice with line 9 as 'print(wpixels)'.
     def test_generate_cfg_slice_wpixels(self):
@@ -707,31 +683,23 @@ class TestSliceForLoops(TestSlice):
 
         # Guard block 1.
         guard_block_1 = funcA.successors['L8']
-        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L12'], successors=['L9', 'L13'], linenos=[5])
-
-        # Body block 1.
-        body_block_1 = guard_block_1.successors['L9']
-        self.assertBlockEqual(body_block_1, predecessors=['L8'], successors=['L10'])
+        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L11'], successors=['L9', 'L12'], linenos=[5])
 
         # Guard block 2.
-        guard_block_2 = body_block_1.successors['L10']
-        self.assertBlockEqual(guard_block_2, predecessors=['L9', 'L11'], successors=['L11', 'L12'])
+        guard_block_2 = guard_block_1.successors['L9']
+        self.assertBlockEqual(guard_block_2, predecessors=['L8', 'L10'], successors=['L10', 'L11'])
 
         # Body block 2.
-        body_block_2 = guard_block_2.successors['L11']
-        self.assertBlockEqual(body_block_2, predecessors=['L10'], successors=['L10'])
+        body_block_2 = guard_block_2.successors['L10']
+        self.assertBlockEqual(body_block_2, predecessors=['L9'], successors=['L9'])
 
         # After block 2.
-        after_block_2 = guard_block_2.successors['L12']
-        self.assertBlockEqual(after_block_2, predecessors=['L10'], successors=['L8'], linenos=[9])
+        after_block_2 = guard_block_2.successors['L11']
+        self.assertBlockEqual(after_block_2, predecessors=['L9'], successors=['L8'], linenos=[9])
 
         # After block 1.
-        after_block_1 = guard_block_1.successors['L13']
-        self.assertBlockEqual(after_block_1, predecessors=['L8'], successors=['L14'], linenos=[10])
-
-        # Exit block.
-        exit_block = after_block_1.successors['L14']
-        self.assertBlockEqual(exit_block, predecessors=['L13'])
+        after_block_1 = guard_block_1.successors['L12']
+        self.assertBlockEqual(after_block_1, predecessors=['L8'], linenos=[10])
 
     # Test _generate_cfg_slice with line 10 as 'print(hpixels)'.
     def test_generate_cfg_slice_hpixels(self):
@@ -743,31 +711,23 @@ class TestSliceForLoops(TestSlice):
 
         # Guard block 1.
         guard_block_1 = funcA.successors['L8']
-        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L12'], successors=['L9', 'L13'], linenos=[5])
-
-        # Body block 1.
-        body_block_1 = guard_block_1.successors['L9']
-        self.assertBlockEqual(body_block_1, predecessors=['L8'], successors=['L10'])
+        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L11'], successors=['L9', 'L12'], linenos=[5])
 
         # Guard block 2.
-        guard_block_2 = body_block_1.successors['L10']
-        self.assertBlockEqual(guard_block_2, predecessors=['L9', 'L11'], successors=['L11', 'L12'], linenos=[6])
+        guard_block_2 = guard_block_1.successors['L9']
+        self.assertBlockEqual(guard_block_2, predecessors=['L8', 'L10'], successors=['L10', 'L11'], linenos=[6])
 
         # Body block 2.
-        body_block_2 = guard_block_2.successors['L11']
-        self.assertBlockEqual(body_block_2, predecessors=['L10'], successors=['L10'], linenos=[7])
-
-        # After block 2.
-        after_block_2 = guard_block_2.successors['L12']
-        self.assertBlockEqual(after_block_2, predecessors=['L10'], successors=['L8'])
+        body_block_2 = guard_block_2.successors['L10']
+        self.assertBlockEqual(body_block_2, predecessors=['L9'], successors=['L9'], linenos=[7])
 
         # After block 1.
-        after_block_1 = guard_block_1.successors['L13']
-        self.assertBlockEqual(after_block_1, predecessors=['L8'], successors=['L14'], linenos=[10])
+        after_block_2 = guard_block_2.successors['L11']
+        self.assertBlockEqual(after_block_2, predecessors=['L9'], successors=['L8'])
 
-        # Exit block.
-        exit_block = after_block_1.successors['L14']
-        self.assertBlockEqual(exit_block, predecessors=['L13'])
+        # After/exit block.
+        after_block = guard_block_1.successors['L12']
+        self.assertBlockEqual(after_block, predecessors=['L8'], linenos=[10])
 
     # Test _generate_cfg_slice with line 10 as 'print(a)'.
     def test_generate_cfg_slice_a(self):
@@ -785,14 +745,14 @@ class TestSliceForLoops(TestSlice):
 
         # Guard block 1.
         guard_block_1 = funcA.successors['L8']
-        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L12'], successors=['L12', 'L13'], linenos=[5])
+        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L11'], successors=['L11', 'L12'], linenos=[5])
 
         # Body block 1.
-        body_block_1 = guard_block_1.successors['L12']
+        body_block_1 = guard_block_1.successors['L11']
         self.assertBlockEqual(body_block_1, predecessors=['L8'], successors=['L8'], linenos=[9])
 
         # After block 1.
-        after_block_1 = guard_block_1.successors['L13']
+        after_block_1 = guard_block_1.successors['L12']
         self.assertBlockEqual(after_block_1, predecessors=['L8'], linenos=[10])
 
     # Test get_slice with line 10 as 'print(hpixels)'.
@@ -805,18 +765,18 @@ class TestSliceForLoops(TestSlice):
 
         # Guard block 1.
         guard_block_1 = funcA.successors['L8']
-        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L10'], successors=['L10', 'L13'], linenos=[5])
+        self.assertBlockEqual(guard_block_1, predecessors=['funcA', 'L9'], successors=['L9', 'L12'], linenos=[5])
 
         # Guard block 2.
-        guard_block_2 = guard_block_1.successors['L10']
-        self.assertBlockEqual(guard_block_2, predecessors=['L8', 'L11'], successors=['L11', 'L8'], linenos=[6])
+        guard_block_2 = guard_block_1.successors['L9']
+        self.assertBlockEqual(guard_block_2, predecessors=['L8', 'L10'], successors=['L10', 'L8'], linenos=[6])
 
         # Body block 2.
-        body_block_2 = guard_block_2.successors['L11']
-        self.assertBlockEqual(body_block_2, predecessors=['L10'], successors=['L10'], linenos=[7])
+        body_block_2 = guard_block_2.successors['L10']
+        self.assertBlockEqual(body_block_2, predecessors=['L9'], successors=['L9'], linenos=[7])
 
         # After block 1.
-        after_block_1 = guard_block_1.successors['L13']
+        after_block_1 = guard_block_1.successors['L12']
         self.assertBlockEqual(after_block_1, predecessors=['L8'], linenos=[10])
 
 

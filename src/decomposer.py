@@ -56,6 +56,7 @@ def process_args():
 def main():
     args = process_args()
     source = readfile(args.filename)
+    print('Running file... {}'.format(args.filename))
 
     # Generate AST.
     node = ast.parse(source)
@@ -70,7 +71,6 @@ def main():
     total_reduced_compexity = 0
     total_func_complexity = 0
 
-    print('Running file... {}'.format(args.filename))
     for func_block in cfg.get_funcs():
         func_slice = Slice(func_block)
 
