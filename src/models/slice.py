@@ -286,7 +286,6 @@ class Slice(object):
     # ---------- COMPARES SLICE MAPS ---------------
     # ----------------------------------------------
 
-    # TODO: REVIEW!!!
     # Adjust line numbers based on multiline groups.
     def _adjust_linenos_multiline_groups(self, linenos, unimportant_linenos):
         final_linenos = set()
@@ -294,6 +293,8 @@ class Slice(object):
             instr = self.reaching_def_info.get_instruction(cur_lineno)
             valid_lines = [lineno in unimportant_linenos or lineno in linenos
                            for lineno in instr.multiline]
+
+            # Add lineno if all lines within multiline group are valid.
             if all(valid_lines):
                 final_linenos.add(cur_lineno)
                 final_linenos |= instr.multiline
@@ -497,8 +498,6 @@ class Slice(object):
         suggestions, suggestion_type = func(**kwargs)
         self._add_suggestion_map(suggestion_map, suggestions, suggestion_type)
 
-    # TODO: Each function should return suggestions, hint.
-    # TODO: Compile the suggestions in this function.
     # Gets the suggestions on how to improve the function.
     def get_suggestions(self, debug=False):
         suggestion_map = {}

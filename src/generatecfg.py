@@ -140,6 +140,8 @@ class TokenGenerator(object):
             if lineno not in comments:
                 line_indentation = self._get_line_indentation(line, indentation)
                 if re.search(r'elif |elif \(|else\:', line):
+                    if line_indentation not in conditionals:
+                        raise RuntimeError('Else without an if')
                     conditionals[line_indentation].append(lineno)
                     for grouped_lineno in conditionals[line_indentation]:
                         groups[grouped_lineno] = set(conditionals[line_indentation])
