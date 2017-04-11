@@ -46,7 +46,10 @@
       `print x`
 4. Check for unintialized variables.
 5. if/else both have return instead of if (return) [code]
-6. Poorly tabbed code (or incorrectly tabbed code)
+6. Changing tabs.
+      - Tabs change within same indentation level - error
+      - Tabs change within different indentation levels - error (?)
+      - Not 3-4 spaces as tabs - get annoyed
 7. Functions inside functions
 
 

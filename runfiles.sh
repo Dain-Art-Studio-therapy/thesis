@@ -38,6 +38,9 @@
 # python -m src.decomposer codesample/student_solution/hw4/4/cast.py
 python -m src.decomposer codesample/student_solution/hw4/14/cast.py # TODO: Look @.
 
+# Not compiling files.
+# python -m src.decomposer codesample/student_solution/hw5/48/cast.py
+
 # # Not fully working for diff_ref_livar.
 # python -m src.decomposer codesample/student_solution/hw5/33/cast.py
 # python -m src.decomposer codesample/student_solution/hw5/34/cast.py
