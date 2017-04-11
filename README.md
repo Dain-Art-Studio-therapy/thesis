@@ -35,7 +35,7 @@
       - Ex. _get_instructions_in_slice --> var init inside loop, print outside
 
 
-### Features to Add in Type Checker
+### Features to Add in Type Checker (Linter)
 
 1. Variable names
       - Single letters var names

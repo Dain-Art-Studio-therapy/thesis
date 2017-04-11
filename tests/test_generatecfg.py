@@ -18,6 +18,98 @@ class TestGenerateTokens(unittest.TestCase):
     def setUp(self):
         Block._label_counter.reset()
 
+    def test_is_end_slash(self):
+        tokens = TokenGenerator('')
+
+        # No slash
+        line = 'x = "testing\\n"\n'
+        self.assertFalse(tokens._is_end_slash(line))
+
+        # Slash withe newline.
+        line = 'x = "testing\\n"\\\n'
+        self.assertTrue(tokens._is_end_slash(line))
+
+        # Slash with space then newline
+        line = 'x = "testing\\n"\\ \n'
+        self.assertFalse(tokens._is_end_slash(line))
+
+        # Slash with only space.
+        line = '   x = "testing\\n"\\ '
+        self.assertFalse(tokens._is_end_slash(line))
+
+    def test_get_space_start(self):
+        tokens = TokenGenerator('')
+
+        # No spaces.
+        line = 'x = "testing\\n"\n'
+        self.assertEqual(tokens._get_space_start(line), '')
+
+        # 2 spaces.
+        line = '  x = "testing\\n"\n'
+        self.assertEqual(tokens._get_space_start(line), '  ')
+
+        # 3 spaces.
+        line = '   x = "testing\\n"\n'
+        self.assertEqual(tokens._get_space_start(line), '   ')
+
+        # 4 spaces.
+        line = '    x = "testing\\n"\n'
+        self.assertEqual(tokens._get_space_start(line), '    ')
+
+        # Tab.
+        line = '\tx = "testing\\n"\n'
+        self.assertEqual(tokens._get_space_start(line), '\t')
+
+        # Tab with 2 spaces.
+        line = '\t  x = "testing\\n"\n'
+        self.assertEqual(tokens._get_space_start(line), '\t  ')
+
+    def test_get_line_indentation(self):
+        tokens = TokenGenerator('')
+
+        # No spaces.
+        line = 'x = "testing\\n"\n'
+        self.assertEqual(tokens._get_line_indentation(line, ''), 1)
+
+        # 2 spaces, 2 indents.
+        line = '    x = "testing\\n"\n'
+        self.assertEqual(tokens._get_line_indentation(line, '  '), 2)
+
+        # 3 spaces, 1 indent.
+        line = '   x = "testing\\n"\n'
+        self.assertEqual(tokens._get_line_indentation(line, '   '), 1)
+
+        # 4 spaces, 3 indents.
+        line = '            x = "testing\\n"\n'
+        self.assertEqual(tokens._get_line_indentation(line, '    '), 3)
+
+        # Tab, 4 indents.
+        line = '\t\t\t\tx = "testing\\n"\n'
+        self.assertEqual(tokens._get_line_indentation(line, '\t'), 4)
+
+        # Tab with 2 spaces, 2 indents.
+        line = '\t  \t  x = "testing\\n"\n'
+        self.assertEqual(tokens._get_line_indentation(line, '\t  '), 2)
+
+        # 4 spaces (blank line), 1 indents from 6 spaces.
+        line = '      '
+        self.assertEqual(tokens._get_line_indentation(line, '    '), 1)
+
+    def test_is_quotation(self):
+        tokens = TokenGenerator('')
+
+        # Single quotations.
+        self.assertTrue(tokens._is_quotation('\'', None))
+        self.assertFalse(tokens._is_quotation('\'', '\\'))
+        self.assertTrue(tokens._is_quotation('\'', ' '))
+        self.assertTrue(tokens._is_quotation('\'', '('))
+
+        # Double quotations.
+        self.assertTrue(tokens._is_quotation('"', None))
+        self.assertFalse(tokens._is_quotation('\"', '\\'))
+        self.assertTrue(tokens._is_quotation('\"', ' '))
+        self.assertTrue(tokens._is_quotation('\"', '('))
+
     def test_get_blank_lines_spaces(self):
         source = ('string0 = "hi0"\n'                           # line 1
                   '\n'                                          # line 2
@@ -61,7 +153,7 @@ class TestGenerateTokens(unittest.TestCase):
                   '    # Also Initialize string2, string 3.\n'  # line 6
                   '    string2, string3 = string1, "hello"\n'   # line 7
                   '    # Initialize string4, string5.\n'        # line 8
-                  '    string4 = string5 = ("hi3")\n'           # line 9
+                  '    string4 = string5 = ("hi3") #hi\n'       # line 9
                   '    # Print string1.\n'                      # line 10
                   '    print(string1)')                         # line 11
         tokens = TokenGenerator(source)
@@ -96,6 +188,38 @@ class TestGenerateTokens(unittest.TestCase):
                   '    z = (y\n'                    # line 5
                   '         + y)\n'                 # line 6
                   '    if (z\n'                     # line 7
+                  '     < 7 or len(x) < 2):\n'      # line 8
+                  '        return z\n'              # line 9
+                  '    return (x +\n'               # line 10
+                  '           "test")\n')           # line 11
+        tokens = TokenGenerator(source)
+        self.assertFalse(tokens.blank_lines)
+        self.assertFalse(tokens.comments)
+
+        keys = set([2, 3, 4, 5, 6, 7, 8, 10, 11])
+        self.assertEqual(set(tokens.multiline.keys()), keys)
+
+        self.assertEqual(tokens.multiline[2], set([2, 3, 4]))
+        self.assertEqual(tokens.multiline[3], set([2, 3, 4]))
+        self.assertEqual(tokens.multiline[4], set([2, 3, 4]))
+
+        self.assertEqual(tokens.multiline[5], set([5, 6]))
+        self.assertEqual(tokens.multiline[6], set([5, 6]))
+
+        self.assertEqual(tokens.multiline[7], set([7, 8]))
+        self.assertEqual(tokens.multiline[8], set([7, 8]))
+
+        self.assertEqual(tokens.multiline[10], set([10, 11]))
+        self.assertEqual(tokens.multiline[11], set([10, 11]))
+
+    def test_multiline_parenthesis_with_strs(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    x = (\'(testing\\n\'\n'         # line 2
+                  '     "testing2\\n"\n'            # line 3
+                  '            "testing3")\n'       # line 4
+                  '    z = ("\\\"(y\\\n'                   # line 5
+                  '         + y #")\n'                 # line 6
+                  '    if (z # (\n'                 # line 7
                   '     < 7 or len(x) < 2):\n'      # line 8
                   '        return z\n'              # line 9
                   '    return (x +\n'               # line 10
@@ -156,13 +280,69 @@ class TestGenerateTokens(unittest.TestCase):
         self.assertEqual(tokens.multiline[13], set([12, 13]))
 
     def test_get_indentation(self):
-        pass
+        # No lines.
+        source = ''
+        tokens = TokenGenerator(source)
+        self.assertEqual(tokens.indentation, None)
 
-    def test_get_line_indentation(self):
-        pass
+        # No indentation.
+        source = ('x = "testing\\n"\n'
+                  'y = "argh\\n"\n')
+        tokens = TokenGenerator(source)
+        self.assertEqual(tokens.indentation, '')
+
+        # Indentation 3 spaces
+        source = ('def funcA(y):\n'                 # line 1
+                  '    x = "testing\\n"\n')         # line 2
+        tokens = TokenGenerator(source)
+        self.assertEqual(tokens.indentation, '    ')
+
+        # Indentation tab.
+        source = ('def funcA(y):\n'                 # line 1
+                  '\tx = "testing\\n"\n')           # line 2
+        tokens = TokenGenerator(source)
+        self.assertEqual(tokens.indentation, '\t')
+
+        # Indentation 4 spaces after comment block.
+        source = ('  # testing\n'                   # line 1
+                  'def funcA(y):\n'                 # line 2
+                  '\tx = "testing\\n"\n')           # line 3
+        tokens = TokenGenerator(source)
+        self.assertEqual(tokens.indentation, '\t')
 
     def test_get_conditionals(self):
-        pass
+        source = ('def funcA():\n'                                      # line 1
+                  '    x = int(input("enter test score:"))\n'           # line 2
+                  '    if x < 70:\n'                                    # line 3
+                  '        print("You need to retake the class.")\n'    # line 4
+                  '    elif x < 85:\n'                                  # line 5
+                  '        if x < 80:\n'                                # line 6
+                  '            print("here")\n'                         # line 7
+                  '        else:\n'                                     # line 8
+                  '            print("here2")\n'                        # line 9
+                  '    else:\n'                                         # line 10
+                  '        print("Great job!")\n'                       # line 11
+                  '        print("Testing multi-line else")\n')         # line 12
+        tokens = TokenGenerator(source)
+        self.assertEqual(set(tokens.conditionals.keys()), set([3, 5, 6, 8, 10]))
+
+        self.assertEqual(tokens.conditionals[3], set([3, 5, 10]))
+        self.assertEqual(tokens.conditionals[5], set([3, 5, 10]))
+        self.assertEqual(tokens.conditionals[10], set([3, 5, 10]))
+
+        self.assertEqual(tokens.conditionals[6], set([6, 8]))
+        self.assertEqual(tokens.conditionals[8], set([6, 8]))
+
+        # Check error if there is elif/else with no if.
+        source = ('def funcA():\n'                                      # line 1
+                  '    x = int(input("enter test score:"))\n'           # line 2
+                  '    elif x < 85:\n'                                  # line 3
+                  '        print("You have room for improvement.")\n'   # line 4
+                  '    else:\n'                                         # line 5
+                  '        print("Great job!")\n'                       # line 6
+                  '        print("Testing multi-line else")\n')         # line 7
+        with self.assertRaises(RuntimeError) as context:
+            TokenGenerator(source)
 
 
 class TestGenerateCFG(unittest.TestCase):

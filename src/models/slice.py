@@ -8,6 +8,7 @@ from src.globals import *
 from numpy import array, diff, where, split
 from enum import Enum
 import copy
+import itertools
 
 from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
@@ -351,9 +352,13 @@ class Slice(object):
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
         suggestions = set()
 
+        # TODO: Experiment with.
+        variables = [[var] for var in self.variables]
+        # variables.extend([list(subset) for subset in itertools.combinations(self.variables, 3)])
+
         # Gets map of linenos to variables to generate suggestions.
-        for var in self.variables:
-            reduced_slice_map = self.get_slice_map(exclude_vars=[var])
+        for var in variables:
+            reduced_slice_map = self.get_slice_map(exclude_vars=var)
             linenos = self._compare_slice_maps(slice_map, reduced_slice_map,
                                                Slice.MIN_DIFF_COMPLEXITY,
                                                Slice.MAX_DIFF_FOR_GROUPING)
@@ -362,6 +367,7 @@ class Slice(object):
             for group in linenos:
                 if len(group) >= Slice.MIN_LINES_FOR_SUGGESTION:
                     suggestions.add((min(group), max(group)))
+
         return suggestions, SuggestionType.REMOVE_VAR
 
     # Gets suggestions based on similar references in a block.
@@ -484,6 +490,7 @@ class Slice(object):
                 message = self._get_suggestion_message(variables, types)
                 suggestions.append(Suggestion(message, self.func.label,
                                               min_lineno, max_lineno))
+                print(suggestion)
         return suggestions
 
     # Adds suggestions to suggestion map.

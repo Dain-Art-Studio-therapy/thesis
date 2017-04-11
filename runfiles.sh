@@ -29,10 +29,14 @@
 
 
 # Generally problematic files.
-python -m src.decomposer codesample/student_solution/hw5/3/cast.py
-python -m src.decomposer codesample/student_solution/hw5/10/cast.py
-python -m src.decomposer codesample/student_solution/hw5/11/cast.py
-python -m src.decomposer codesample/student_solution/hw5/18/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/3/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/10/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/11/cast.py
+# python -m src.decomposer codesample/student_solution/hw5/18/cast.py
+
+# Talking 4/7/2017
+# python -m src.decomposer codesample/student_solution/hw4/4/cast.py
+python -m src.decomposer codesample/student_solution/hw4/14/cast.py # TODO: Look @.
 
 # # Not fully working for diff_ref_livar.
 # python -m src.decomposer codesample/student_solution/hw5/33/cast.py

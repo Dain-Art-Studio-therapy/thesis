@@ -72,65 +72,67 @@ class TokenGenerator(object):
 
     def _get_multiline_instructions(self):
         multiline = {}
-        brackets_stack = []
+        brackets = []
 
+        inside_str = False
         last_slash = None
         start = 1
-        end = 1
 
         # Get actual multiline instructions.
         for lineno, line in enumerate(self.lines, 1):
-            if not len(brackets_stack) and not last_slash:
+            # New statement if no slash at end.
+            if not brackets and not last_slash:
                 start = lineno
 
+            # Analyze the line if not blank line or comment.
             if (lineno not in self.blank_lines and
                 lineno not in self.comments):
-                # Checks for multiline parenthesis.
-                for character in line:
-                    if character == '(':
-                        brackets_stack.append('(')
-                    elif character == ')':
-                        brackets_stack.pop()
+                idx_char = 0
+                idx_prev_char = None
+                exit = False
 
-                # Add range to dictionary if multiline.
-                end = lineno
-                if (not len(brackets_stack) or
-                    (last_slash and last_slash == lineno - 1)):
-                    if start != end:
-                        for grouped_lineno in range(start, end+1):
-                            multiline[grouped_lineno] = set(range(start, end+1))
+                # Checks for multiline parenthesis.
+                while idx_char < len(line) and not exit:
+                    character = line[idx_char]
+                    prev_char = line[idx_prev_char] if idx_prev_char else None
+                    if self._is_quotation(character, prev_char):
+                        inside_str = not inside_str
+                    if not inside_str:
+                        if character == '(':
+                            brackets.append('(')
+                        elif character == ')':
+                            brackets.pop()
+                        elif character == '#':
+                            exit = True
+                    idx_char += 1
+                    idx_prev_char = idx_char - 1
+
+                # Store range in dict if multiline.
+                multiline_group = range(start, lineno+1)
+                if (start != lineno and (last_slash or not brackets)):
+                    for grouped_lineno in multiline_group:
+                        multiline[grouped_lineno] = set(multiline_group)
 
                 # Initialize multiline \ for next iteration.
-                if (len(line) >= 2 and line[-2] == '\\'):
-                    last_slash = lineno
-                else:
-                    last_slash = None
+                last_slash = lineno if self._is_end_slash(line) else None
 
         return multiline
-
-    # Returns the space at the start of the line.
-    def _get_space_start(self, line):
-        return re.search(r'(\s*)[^\s]*', line).group(1)
 
     # Gets the indentation for a program.
     def _get_indentation(self, comments):
         if not self.lines:
-            return 0
+            return None
 
-        lineno = 0
-        line = self.lines[lineno]
+        lineno = 1
+        line = self.lines[lineno-1]
 
-        while (lineno < len(self.lines)-1 and
-               (line == line.lstrip() or lineno in comments or not line.strip())):
+        while (lineno < len(self.lines) and
+               (lineno in comments or
+                line == line.lstrip() or not line.strip())):
             lineno += 1
-            line = self.lines[lineno]
+            line = self.lines[lineno-1]
 
         return self._get_space_start(line)
-
-    # Gets the indentation for a particular line in the program.
-    def _get_line_indentation(self, line, indentation):
-        line = self._get_space_start(line)
-        return len(tuple(re.finditer(indentation, line)))
 
     # Returns the groups of conditionals.
     def _get_conditionals(self, indentation, comments):
@@ -141,13 +143,31 @@ class TokenGenerator(object):
                 line_indentation = self._get_line_indentation(line, indentation)
                 if re.search(r'elif |elif \(|else\:', line):
                     if line_indentation not in conditionals:
-                        raise RuntimeError('Else without an if')
+                        raise RuntimeError('Elif or else without an if')
                     conditionals[line_indentation].append(lineno)
                     for grouped_lineno in conditionals[line_indentation]:
                         groups[grouped_lineno] = set(conditionals[line_indentation])
                 elif re.search(r'if |if\(', line):
                     conditionals[line_indentation] = [lineno]
         return groups
+
+    # Checks if the character is a quotation that starts or ends a string.
+    def _is_quotation(self, character, prev_char):
+        return (character == '\"' or character == '\'') and prev_char != '\\'
+
+    # Determines if the line ends in a backslash.
+    def _is_end_slash(self, line):
+        return len(line) >= 2 and line[-2] == '\\' and line[-1] == '\n'
+
+    # Returns the space at the start of the line.
+    def _get_space_start(self, line):
+        return re.search(r'(\s*)[^\s]*', line).group(1)
+
+    # Gets the indentation for a particular line in the program.
+    def _get_line_indentation(self, line, indentation):
+        line = self._get_space_start(line)
+        return len(tuple(re.finditer(indentation, line)))
+
 
 
 class CFGGenerator(ast.NodeVisitor):
