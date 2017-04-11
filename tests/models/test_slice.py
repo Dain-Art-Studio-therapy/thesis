@@ -271,13 +271,13 @@ class TestSliceCondenseFuncs(TestSlice):
         self.assertFalse(exit_block.successors)
 
     def test_condense_cfg_remove_empty_block(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_condense_cfg_combine_blocks(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_condense_cfg_hoist_branch(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
 
 # Tests Slice generating slice and slice map related helper functions.
@@ -292,42 +292,83 @@ class TestSliceGenerateSliceFuncs(TestSlice):
         # Include no kwargs
 
     def test_get_slice_map_kwargs(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
+        # Test to make sure correct number of keys.
         # Include "include_control=False"
 
 
 # Tests Slice comparing slice map related helper functions.
 class TestSliceCompareSliceMapFuncs(TestSlice):
 
-    def test_group_linenos(self):
-        self.skipTest('TODO: Implement')
+    def _get_source(self, var):
+        source = ('def funcA():\n'                      # line 1
+                  '     a = 5\n'                        # line 2
+                  '     hpixels = 5\n'                  # line 3
+                  '     wpixels = 10\n'                 # line 4
+                  '     for y in range(5):\n'           # line 5
+                  '         for x in range(2):\n'       # line 6
+                  '             hpixels += 1\n'         # line 7
+                  '             new_var = 0\n'          # line 8
+                  '         wpixels += 1\n'             # line 9
+                  '     print(%s)\n' %var)              # line 10
+        return source
 
     def test_adjust_linenos_multiline_groups(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_generate_groups(self):
+        source = self._get_source('hpixels') # Source not important for tests.
+        slicemethod = self._get_slice_class(source)
+
+        linenos = [1, 2, 4, 5, 7, 8, 10]
+        groups = slicemethod._generate_groups(linenos, max_diff_linenos=2)
+        groups_list = [list(group) for group in groups]
+        self.assertEqual(groups_list, [[1, 2], [4, 5], [7, 8], [10]])
+
+        linenos = [1, 4, 7]
+        groups = slicemethod._generate_groups(linenos, max_diff_linenos=2)
+        groups_list = [list(group) for group in groups]
+        self.assertEqual(groups_list, [[1], [4], [7]])
+
+    def test_group_linenos(self):
+        self.skipTest('TODO: Implement (Important)')
 
     def test_compare_slice_maps(self):
         self.skipTest('TODO: Implement')
 
 
-# Tests Slice generating suggestions related helper functions.
-class TestSliceGenerateSuggestionsFuncs(TestSlice):
+# Tests Slice generating suggestions types related helper functions.
+class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
+
+    def test_get_suggestions_remove_variables(self):
+        self.skipTest('TODO: Implement')
+
+    def test_get_suggestions_similar_ref_block(self):
+        self.skipTest('TODO: Implement')
+
+    def test_get_suggestions_diff_reference_livevar_block(self):
+        self.skipTest('TODO: Implement')
+
+
+# Test Slice generating suggestion related helper functions.
+class TestSliceGenerateSuggestionFuncs(TestSlice):
 
     def test_range(self):
         self.skipTest('TODO: Implement')
 
     def test_is_valid_suggestion(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_get_referenced_variables(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_get_return_variables(self):
+        self.skipTest('TODO: Implement (Important)')
 
     def test_get_suggestion_message(self):
         self.skipTest('TODO: Implement')
 
     def test_generate_suggestions(self):
-        self.skipTest('TODO: Implement')
-
-    def test_get_suggestions_remove_variables(self):
         self.skipTest('TODO: Implement')
 
     def test_add_suggestion_map(self):
@@ -785,7 +826,7 @@ class TestSliceConditionalReturn(TestSlice):
 
     # TODO: Decide code and make a test suite for code.
     def test_conditional_with_return(self):
-        self.skipTest('TODO: MAKE TESTS')
+        self.skipTest('TODO: Implement (Important)')
 
 
 # Tests loops with Slice class.
@@ -793,7 +834,7 @@ class TestSliceWhileLoops(TestSlice):
 
     # TODO: Decide code and make a test suite for code.
     def test_while_loop(self):
-        self.skipTest('TODO: MAKE TESTS')
+        self.skipTest('TODO: Implement (Important)')
 
 if __name__ == '__main__':
      unittest.main()

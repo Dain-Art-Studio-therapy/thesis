@@ -102,37 +102,32 @@ class TestFunctionBlockInformation(unittest.TestCase):
         self.assertFalse(info1 == None)
         self.assertFalse(info1 == 1)
 
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
         # TODO: Checks block info class equality.
-
         # TODO: Checks blocks equality.
-
         # TODO: Checks block info keys equality.
-
         # TODO: Checks block info values equality.
-
         # TODO: Checks instruction info values equality.
 
     def test_init(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
         # TODO: Checks block_info has correct keys
-
         # TODO: Checks instructions, instruction_info has correct keys
 
     def test_blocks(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_instructions(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_get_block_info(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_get_instruction(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
     def test_get_instruction_info(self):
-        self.skipTest('TODO: Implement')
+        self.skipTest('TODO: Implement (Important)')
 
 
 if __name__ == '__main__':

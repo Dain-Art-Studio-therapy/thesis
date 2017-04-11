@@ -60,7 +60,9 @@ class Slice(object):
 
     MIN_DIFF_COMPLEXITY = 3
     MAX_DIFF_FOR_GROUPING = 2
+    MIN_VARIABLES_PARAMETER = 1
     MAX_VARIABLES_PARAMETER = 6
+    MAX_VARIABLES_RETURN = 3
     MIN_LINES_FOR_SUGGESTION = 3
     MIN_LINES_FUNC_NOT_IN_SUGGESTION = 5
     MAX_DIFF_REF_LIVE_VAR = 4
@@ -436,15 +438,18 @@ class Slice(object):
         return max_lineno - min_lineno + 1
 
     # Determines if the suggestion is valid.
-    def _is_valid_suggestion(self, variables, min_lineno, max_lineno):
-        variables = set(variables)
+    def _is_valid_suggestion(self, ref_vars, ret_vars, min_lineno, max_lineno):
+        ref_vars = set(ref_vars)
+        ret_vars = set(ret_vars)
         lines_suggestions = self._range(min_lineno, max_lineno)
         lines_func = len(self.linenos) - lines_suggestions
 
-        return (len(variables) <= Slice.MAX_VARIABLES_PARAMETER and
+        return (len(ref_vars) <= Slice.MAX_VARIABLES_PARAMETER and
+                len(ref_vars) >= Slice.MIN_VARIABLES_PARAMETER and
+                len(ret_vars) <= Slice.MAX_VARIABLES_RETURN and
                 lines_suggestions >= Slice.MIN_LINES_FOR_SUGGESTION and
                 lines_func >= Slice.MIN_LINES_FUNC_NOT_IN_SUGGESTION and
-                variables != self.func.get_function_parameters())
+                ref_vars != self.func.get_function_parameters())
 
     # Gets the variables referenced in range of line numbers.
     def _get_referenced_variables(self, min_lineno, max_lineno):
@@ -460,8 +465,27 @@ class Slice(object):
                     defined.add(var)
         return sorted(list(variables))
 
+    # Gets the return values in the range of the line numbers.
+    def _get_return_variables(self, min_lineno, max_lineno):
+        variables = set()
+        defined = set()
+        for lineno in range(min_lineno, max_lineno+1):
+            instr_info = self.live_var_info.get_instruction_info(lineno)
+            if instr_info:
+                for var in instr_info.defined:
+                    defined.add(var)
+
+        for lineno in range(max_lineno+1, max(self.linenos)+1):
+            instr_info = self.live_var_info.get_instruction_info(lineno)
+            if instr_info:
+                variables |= defined.intersection(instr_info.referenced)
+                for var in instr_info.defined:
+                    if var in defined:
+                        defined.remove(var)
+        return sorted(list(variables))
+
     # Creates the message for a suggestion.
-    def _get_suggestion_message(self, variables, types):
+    def _get_suggestion_message(self, ref_vars, ret_vars, types):
         message = ''
 
         # Add suggestion types to message.
@@ -470,12 +494,18 @@ class Slice(object):
                              for suggestion_type in types])
         message += ')'
 
-        # Add parameters to message.
-        message += ' Try creating a new function with parameter'
-        if len(variables) == 1:
-            message += ' {}'.format(variables[0])
+        # Add parameters.
+        message += ' Try creating a new function with '
+        if not ref_vars:
+            message += 'no parameters'
+        elif len(ref_vars) == 1:
+            message += 'parameter {}'.format(ref_vars[0])
         else:
-            message += 's {}'.format(', '.join(variables))
+            message += 'parameters {}'.format(', '.join(ref_vars))
+
+        # Add return values.
+        if ret_vars:
+            message += ' and returns {}'.format(', '.join(ret_vars))
         return message
 
     # Generates suggestions from a map of range of lineno to list of variables.
@@ -483,14 +513,14 @@ class Slice(object):
         suggestions = []
         for key, types in suggestion_map.items():
             min_lineno, max_lineno = key
-            variables = self._get_referenced_variables(min_lineno, max_lineno)
+            ref_vars = self._get_referenced_variables(min_lineno, max_lineno)
+            ret_vars = self._get_return_variables(min_lineno, max_lineno)
 
             # Generate message if the number of vars within max vars in func.
-            if self._is_valid_suggestion(variables, min_lineno, max_lineno):
-                message = self._get_suggestion_message(variables, types)
+            if self._is_valid_suggestion(ref_vars, ret_vars, min_lineno, max_lineno):
+                message = self._get_suggestion_message(ref_vars, ret_vars, types)
                 suggestions.append(Suggestion(message, self.func.label,
                                               min_lineno, max_lineno))
-                print(suggestion)
         return suggestions
 
     # Adds suggestions to suggestion map.
