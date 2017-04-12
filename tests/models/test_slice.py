@@ -836,5 +836,32 @@ class TestSliceWhileLoops(TestSlice):
     def test_while_loop(self):
         self.skipTest('TODO: Implement (Important)')
 
+
+# Tests a recursive function.
+class TestRecursiveFunction(TestSlice):
+
+    # TODO: Decide code and make a test suite for code.
+    def test_recursion(self):
+        self.skipTest('TODO: Implement (Important)')
+
+
+# Tests a exception with more than two successors.
+class TestExceptionFunction(TestSlice):
+
+    def get_source(self):
+        source = ('def funcA(y):\n'                       # line 1
+                  '    try:\n'                            # line 2
+                  '        return y\n'                    # line 3
+                  '    except SyntaxException as e:\n'    # line 4
+                  '        return str(e)\n'               # line 5
+                  '    except Exception as e:\n'          # line 6
+                  '        return str(e)\n')              # line 7
+        return source
+
+    # TODO: Decide code and make a test suite for code.
+    def test_exception(self):
+        self.skipTest('TODO: Implement (Important)')
+
+
 if __name__ == '__main__':
      unittest.main()

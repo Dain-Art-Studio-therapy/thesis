@@ -341,8 +341,6 @@ class CFGGenerator(ast.NodeVisitor):
         self._visit_item(body)
         self._add_successor(self.current_block, guard_block)
 
-        # TODO: Figure out orelse in For.
-
         self.current_control = prev_control
         self.current_block = after_block
 
@@ -409,10 +407,59 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_Raise')
     #     self.generic_visit(node)
 
-    # # TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
-    # def visit_TryExcept(self, node):
-    #     print('visit_TryExcept')
-    #     self.generic_visit(node)
+    # Visits an exception.
+    def _visit_exception(self, lineno, body, handlers):
+        prev_control = self.current_control
+        start_block = self.current_block
+        end_except_block = None
+
+        # Add TRY statement to current block.
+        self._add_instruction_info(lineno, instr_type=InstructionType.TRY)
+        self.current_control = lineno
+
+        # Add body to try block.
+        start_try_block = Block()
+        start_block.add_successor(start_try_block)
+        self.current_block = start_try_block
+
+        self._visit_item(body)
+        end_try_block = self.current_block
+
+        # Add except data.
+        for handler in handlers:
+            # Add body to except block.
+            start_except_block = Block()
+            start_block.add_successor(start_except_block)
+            self.current_block = start_except_block
+
+            # Visit handler header (ex. except Exception as e).
+            if isinstance(handler.name, str):
+                self._add_instruction_info(handler.lineno, var='e', action=TypeVariable.STORE)
+            else:
+                self._visit_item(handler.name)
+            self._visit_item(handler.type)
+            self._add_instruction_info(handler.lineno, instr_type=InstructionType.EXCEPT)
+            self.current_control = handler.lineno
+
+            # Visit handler body.
+            self._visit_item(handler.body)
+            end_except_block = self.current_block
+
+        # Add after block if all paths don't have a return.
+        if end_try_block or end_except_block:
+            after_block = Block()
+            self._add_successor(end_try_block, after_block)
+            self._add_successor(end_except_block, after_block)
+            self.current_block = after_block
+        self.current_control = prev_control
+
+    # TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
+    def visit_TryExcept(self, node):
+        self._visit_exception(node.lineno, node.body, node.handlers)
+
+    # Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
+    def visit_Try(self, node):
+        self._visit_exception(node.lineno, node.body, node.handlers)
 
     # # TryFinally(stmt* body, stmt* finalbody)
     # def visit_TryFinally(self, node):

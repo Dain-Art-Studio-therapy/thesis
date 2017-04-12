@@ -10,10 +10,12 @@ from src.globals import *
 
 
 class InstructionType(Enum):
-    __order__ = 'RETURN, ELSE, FUNCTION_HEADER'
+    __order__ = 'RETURN, ELSE, FUNCTION_HEADER, TRY, EXCEPT'
     RETURN = 1
     ELSE = 2
     FUNCTION_HEADER = 3
+    TRY = 4
+    EXCEPT = 5
 
 
 class Instruction(object):

@@ -1029,6 +1029,79 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockPredecessorsEqual(exit_block, ['L2', 'L3'])
         self.assertBlockSuccessorsEqual(exit_block)
 
+    def test_try_except(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    try:\n'                      # line 2
+                  '        print(y)\n'              # line 3
+                  '    except:\n'                   # line 4
+                  '        print(e)\n')             # line 5
+        cfg = self._generate_cfg(source)
+        block = cfg.get_func('funcA')
+
+        self.assertInstrEqual(block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY)
+        self.assertBlockPredecessorsEqual(block)
+        self.assertBlockSuccessorsEqual(block, ['L2', 'L3'])
+
+        try_block = block.successors['L2']
+        self.assertInstrEqual(try_block.get_instruction(3), referenced=['print', 'y'], control=2)
+        self.assertBlockPredecessorsEqual(try_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(try_block, ['L4'])
+
+        except_block = block.successors['L3']
+        self.assertInstrEqual(except_block.get_instruction(4), instruction_type=InstructionType.EXCEPT, control=2)
+        self.assertInstrEqual(except_block.get_instruction(5), referenced=['print', 'e'], control=4)
+        self.assertBlockPredecessorsEqual(except_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(except_block, ['L4'])
+
+        after_block = try_block.successors['L4']
+        self.assertFalse(after_block.get_instructions())
+        self.assertBlockPredecessorsEqual(after_block, ['L2', 'L3'])
+        self.assertBlockSuccessorsEqual(after_block, ['L1'])
+
+        exit_block = after_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L4'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
+    def test_try_except_as_e(self):
+        source = ('def funcA(y):\n'                       # line 1
+                  '    try:\n'                            # line 2
+                  '        return y\n'                    # line 3
+                  '    except SyntaxException as e:\n'    # line 4
+                  '        return str(e)\n'               # line 5
+                  '    except Exception as e:\n'          # line 6
+                  '        return str(e)\n')              # line 7
+        cfg = self._generate_cfg(source)
+        block = cfg.get_func('funcA')
+
+        self.assertInstrEqual(block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY)
+        self.assertBlockPredecessorsEqual(block)
+        self.assertBlockSuccessorsEqual(block, ['L2', 'L3', 'L4'])
+
+        try_block = block.successors['L2']
+        self.assertInstrEqual(try_block.get_instruction(3), referenced=['y'], instruction_type=InstructionType.RETURN, control=2)
+        self.assertBlockPredecessorsEqual(try_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(try_block, ['L1'])
+
+        except_block_1 = block.successors['L3']
+        self.assertInstrEqual(except_block_1.get_instruction(4), referenced=['SyntaxException'], defined=['e'], instruction_type=InstructionType.EXCEPT, control=2)
+        self.assertInstrEqual(except_block_1.get_instruction(5), referenced=['str', 'e'], instruction_type=InstructionType.RETURN, control=4)
+        self.assertBlockPredecessorsEqual(except_block_1, ['funcA'])
+        self.assertBlockSuccessorsEqual(except_block_1, ['L1'])
+
+        except_block_2 = block.successors['L4']
+        self.assertInstrEqual(except_block_2.get_instruction(6), referenced=['Exception'], defined=['e'], instruction_type=InstructionType.EXCEPT, control=4)
+        self.assertInstrEqual(except_block_2.get_instruction(7), referenced=['str', 'e'], instruction_type=InstructionType.RETURN, control=6)
+        self.assertBlockPredecessorsEqual(except_block_2, ['funcA'])
+        self.assertBlockSuccessorsEqual(except_block_2, ['L1'])
+
+        exit_block = try_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L2', 'L3', 'L4'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -37,6 +37,7 @@
 # Talking 4/7/2017
 # python -m src.decomposer codesample/student_solution/hw4/4/cast.py
 python -m src.decomposer codesample/student_solution/hw4/14/cast.py # TODO: Look @.
+python -m src.decomposer codesample/student_solution/hw6/14/blur.py
 
 # Not compiling files.
 # python -m src.decomposer codesample/student_solution/hw5/48/cast.py
