@@ -58,15 +58,6 @@ class Slice(object):
         FunctionBlockInformation containg ReachingDefinitions for current block.
     """
 
-    MIN_DIFF_COMPLEXITY = 3
-    MAX_DIFF_FOR_GROUPING = 2
-    MIN_VARIABLES_PARAMETER = 1
-    MAX_VARIABLES_PARAMETER = 6
-    MAX_VARIABLES_RETURN = 3
-    MIN_LINES_FOR_SUGGESTION = 3
-    MIN_LINES_FUNC_NOT_IN_SUGGESTION = 5
-    MAX_DIFF_REF_LIVE_VAR = 4
-
     def __init__(self, func, config):
         self.func = func
         self.config = config
@@ -365,12 +356,12 @@ class Slice(object):
         for var in variables:
             reduced_slice_map = self.get_slice_map(exclude_vars=var)
             linenos = self._compare_slice_maps(slice_map, reduced_slice_map,
-                                               Slice.MIN_DIFF_COMPLEXITY,
-                                               Slice.MAX_DIFF_FOR_GROUPING)
+                                               self.config.min_diff_complexity_between_slices,
+                                               self.config.max_dist_between_grouped_linenos)
 
             # Adds groups of linenos.
             for group in linenos:
-                if len(group) >= Slice.MIN_LINES_FOR_SUGGESTION:
+                if len(group) >= self.config.min_lines_in_suggestion:
                     suggestions.add((min(group), max(group)))
 
         return suggestions, SuggestionType.REMOVE_VAR
@@ -389,7 +380,7 @@ class Slice(object):
                 if not instr.referenced or instr.referenced != prev_ref_set:
                     if len(instr.referenced) > 1:
                         if (min_lineno and (self._range(min_lineno, max_lineno) >=
-                                            Slice.MIN_LINES_FOR_SUGGESTION)):
+                                            self.config.min_lines_in_suggestion)):
                             suggestions.add((min_lineno, max_lineno))
                     min_lineno = instr.lineno
                 max_lineno = instr.lineno
@@ -416,13 +407,13 @@ class Slice(object):
 
             # Only continue building suggestion if any instrs depending on
             # current block's instrs are included in linenos variable.
-            if ((len(info.in_node) - len(info.referenced)) > Slice.MAX_DIFF_REF_LIVE_VAR
+            if ((len(info.in_node) - len(info.referenced)) > self.config.max_diff_ref_and_live_var_block
                 and not instrs.intersection(exclude_control)):
                 linenos |= instrs
             else:
                 intersection = multiline.intersection(linenos)
                 # Only add if all lines in the multiline group are in linenos.
-                if (len(linenos) >= Slice.MIN_LINES_FOR_SUGGESTION and
+                if (len(linenos) >= self.config.min_lines_in_suggestion and
                     (len(intersection) == len(multiline) or not intersection)):
                     suggestions.add((min(linenos), max(linenos)))
                 exclude_control |= cur_control
@@ -447,11 +438,11 @@ class Slice(object):
         lines_suggestions = self._range(min_lineno, max_lineno)
         lines_func = len(self.linenos) - lines_suggestions
 
-        return (len(ref_vars) <= Slice.MAX_VARIABLES_PARAMETER and
-                len(ref_vars) >= Slice.MIN_VARIABLES_PARAMETER and
-                len(ret_vars) <= Slice.MAX_VARIABLES_RETURN and
-                lines_suggestions >= Slice.MIN_LINES_FOR_SUGGESTION and
-                lines_func >= Slice.MIN_LINES_FUNC_NOT_IN_SUGGESTION and
+        return (len(ref_vars) <= self.config.max_variables_parameter_in_suggestion and
+                len(ref_vars) >= self.config.min_variables_parameter_in_suggestion and
+                len(ret_vars) <= self.config.max_variables_return_in_suggestion and
+                lines_suggestions >= self.config.min_lines_in_suggestion and
+                lines_func >= self.config.min_lines_func_not_in_suggestion and
                 ref_vars != self.func.get_function_parameters())
 
     # Gets the variables referenced in range of line numbers.

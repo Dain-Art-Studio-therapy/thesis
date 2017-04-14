@@ -19,4 +19,4 @@ class Test_DecomposerError(unittest.TestCase):
 
     def test_else_without_if_error(self):
         error = ElseWithoutIfError(lineno=10)
-        self.assertEqual(error.message, 'Else without an if on line 10.')
+        self.assertEqual(error.message, 'Elif or else without an if on line 10.')

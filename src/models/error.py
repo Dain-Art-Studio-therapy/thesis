@@ -24,6 +24,6 @@ class FileNotFoundError(DecomposerError):
 class ElseWithoutIfError(DecomposerError):
 
     def __init__(self, lineno):
-        self.message = "Else without an if on line {}.".format(lineno)
+        self.message = "Elif or else without an if on line {}.".format(lineno)
         self.lineno = lineno
         Exception.__init__(self, self.message)
