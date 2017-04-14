@@ -363,7 +363,7 @@ class FunctionBlock(BlockInterface):
     # Helper method to topologically sort blocks.
     def _topological_sort_helper(self, sorted_blocks, visited, current):
         visited.add(current.label)
-        for key in reversed(current.successors.keys()):
+        for key in reversed(list(current.successors.keys())):
             successor = current.successors[key]
             if successor.label not in visited:
                 self._topological_sort_helper(sorted_blocks, visited, successor)

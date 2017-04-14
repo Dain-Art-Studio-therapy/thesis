@@ -9,6 +9,7 @@ import ast
 import copy
 
 from src.globals import *
+from src.parser import parse_json
 from src.generatecfg import CFGGenerator
 from src.models.slice import *
 from src.models.block import BlockList
@@ -81,7 +82,8 @@ class TestSlice(unittest.TestCase):
     def _get_slice_class(self, source):
         cfg = self._generate_cfg(source)
         func = cfg.get_func('funcA')
-        return Slice(func)
+        config = parse_json()
+        return Slice(func, config)
 
     def _get_instrs_slice(self, source, lineno, **kwargs):
         slicemethod = self._get_slice_class(source)
@@ -228,7 +230,8 @@ class TestSliceCondenseFuncs(TestSlice):
         self.assertEqual(len(exit_block.predecessors), 3)
         self.assertFalse(exit_block.successors)
 
-        slicemethod = Slice(start_block)
+        config = parse_json()
+        slicemethod = Slice(start_block, config)
         slicemethod._condense_cfg_fold_redundant_branch(start_block)
 
         # Check for change after calling function.
@@ -261,7 +264,8 @@ class TestSliceCondenseFuncs(TestSlice):
         self.assertEqual(len(exit_block.predecessors), 3)
         self.assertFalse(exit_block.successors)
 
-        slicemethod = Slice(start_block)
+        config = parse_json()
+        slicemethod = Slice(start_block, config)
         slicemethod._condense_cfg_fold_redundant_branch(start_block)
 
         # Check for no change after calling function.

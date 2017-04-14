@@ -16,3 +16,7 @@
 ### Running Tests
 
       ./runtests.sh
+
+### Packages Required
+
+      pip install enum34

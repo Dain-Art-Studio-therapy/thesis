@@ -9,6 +9,7 @@ import _ast
 import re
 
 from src.globals import *
+from src.models.error import *
 from src.models.block import BlockList, Block, FunctionBlock
 from src.models.instruction import Instruction, InstructionType
 
@@ -143,7 +144,7 @@ class TokenGenerator(object):
                 line_indentation = self._get_line_indentation(line, indentation)
                 if re.search(r'elif |elif \(|else\:', line):
                     if line_indentation not in conditionals:
-                        raise RuntimeError('Elif or else without an if on line number {0}'.format(lineno))
+                        raise FileNotFoundError(lineno)
                     conditionals[line_indentation].append(lineno)
                     for grouped_lineno in conditionals[line_indentation]:
                         groups[grouped_lineno] = set(conditionals[line_indentation])

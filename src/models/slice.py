@@ -67,8 +67,11 @@ class Slice(object):
     MIN_LINES_FUNC_NOT_IN_SUGGESTION = 5
     MAX_DIFF_REF_LIVE_VAR = 4
 
-    def __init__(self, func):
+    def __init__(self, func, config):
         self.func = func
+        self.config = config
+
+        # Condense functions and generate analysis methods.
         self.func = self.condense_cfg(self.func)
         analysismethod = ReachingDefinitionsAnalysis()
         self.reaching_def_info = analysismethod.analyze(self.func)

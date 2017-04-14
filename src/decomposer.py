@@ -11,6 +11,7 @@ import sys
 from src.globals import *
 from src.models.slice import Slice
 from src.generatecfg import CFGGenerator
+from src.parser import parse_json
 
 
 # Prints AST node recursively.
@@ -49,6 +50,7 @@ def process_args():
     parser = argparse.ArgumentParser(description='Code to decompose.')
     parser.add_argument('filename', help='file to parse')
     parser.add_argument('--debug', action='store_true', help='print debug messages')
+    parser.add_argument('--config', '-c', help='YAML configuration file')
     args = parser.parse_args()
     return args
 
@@ -58,9 +60,12 @@ def main():
     source = readfile(args.filename)
     print('Running file... {}'.format(args.filename))
 
+    # Parse JSON file.
+    config = parse_json(args.config)
+
     # Generate AST.
     node = ast.parse(source)
-    print_ast(node, args.debug)
+    print_ast(node, args.config)
 
     # Generate CFG.
     generator = CFGGenerator(args.debug)
@@ -72,7 +77,7 @@ def main():
     total_func_complexity = 0
 
     for func_block in cfg.get_funcs():
-        func_slice = Slice(func_block)
+        func_slice = Slice(func_block, config)
 
         # Get complexities.
         func_complexity = func_block.get_cyclomatic_complexity()
