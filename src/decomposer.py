@@ -42,7 +42,10 @@ def print_ast(node, debug):
 
 # Opens and reads file.
 def readfile(filename):
-    f = open(filename)
+    try:
+        f = open(filename)
+    except IOError as e:
+        raise FileNotFoundError(filename)
     return f.read()
 
 
