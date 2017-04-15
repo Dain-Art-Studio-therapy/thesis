@@ -1103,7 +1103,6 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_list_functions(self):
-        # TODO: Add insert, extend, [0] (as ref and def), pop
         source = ('def funcA():\n'              # line 1
                   '    x = [1, 2, 3, 4, 5]\n'   # line 2
                   '    y = [6, 7]\n'            # line 3

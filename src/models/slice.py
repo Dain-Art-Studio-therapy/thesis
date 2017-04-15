@@ -29,11 +29,14 @@ class Suggestion(object):
     Represents a suggestion to be made to the user.
     """
 
-    def __init__(self, message, func_name, start_lineno, end_lineno=None):
-        self.message = message
+    def __init__(self, ref_vars, ret_vars, types, func_name,
+                 start_lineno, end_lineno=None):
         self.func_name = func_name
         self.start_lineno = start_lineno
         self.end_lineno = end_lineno if end_lineno else start_lineno
+        self.ref_vars = ref_vars
+        self.ret_vars = ret_vars
+        self.types = types
 
     def __lt__(self, other):
         if self.start_lineno == other.start_lineno:
@@ -41,11 +44,27 @@ class Suggestion(object):
         return self.start_lineno < other.start_lineno
 
     def __str__(self):
+        message = ''
+
+        # Gets message header.
         if self.end_lineno == self.start_lineno:
-            return 'line {} ({}) : {}'.format(
-                self.start_lineno, self.func_name, self.message)
-        return 'line {}-{} ({}) : {}'.format(
-            self.start_lineno, self.end_lineno, self.func_name, self.message)
+            message += 'line {} ({}):\n'.format(self.start_lineno, self.func_name)
+        else:
+            message += 'line {}-{} ({}):\n'.format(self.start_lineno, self.end_lineno, self.func_name)
+
+        # Add suggestion parameters.
+        if self.ref_vars:
+            message += '\tparameters: {}\n'.format(', '.join(self.ref_vars))
+
+        # Adds suggestion return value.
+        if self.ret_vars:
+            message += '\treturns: {}\n'.format(', '.join(self.ret_vars))
+
+        # Add suggestion types to message.
+        names = [suggestion_type.name.lower() for suggestion_type in self.types]
+        message += '\treason: {}\n'.format(names)
+
+        return message
 
 
 class Slice(object):
@@ -478,30 +497,6 @@ class Slice(object):
                         defined.remove(var)
         return sorted(list(variables))
 
-    # Creates the message for a suggestion.
-    def _get_suggestion_message(self, ref_vars, ret_vars, types):
-        message = ''
-
-        # Add suggestion types to message.
-        message += '('
-        message += ', '.join([suggestion_type.name.lower()
-                             for suggestion_type in types])
-        message += ')'
-
-        # Add parameters.
-        message += ' Try creating a new function with '
-        if not ref_vars:
-            message += 'no parameters'
-        elif len(ref_vars) == 1:
-            message += 'parameter {}'.format(ref_vars[0])
-        else:
-            message += 'parameters {}'.format(', '.join(ref_vars))
-
-        # Add return values.
-        if ret_vars:
-            message += ' and returns {}'.format(', '.join(ret_vars))
-        return message
-
     # Generates suggestions from a map of range of lineno to list of variables.
     def _generate_suggestions(self, suggestion_map):
         suggestions = []
@@ -512,8 +507,8 @@ class Slice(object):
 
             # Generate message if the number of vars within max vars in func.
             if self._is_valid_suggestion(ref_vars, ret_vars, min_lineno, max_lineno):
-                message = self._get_suggestion_message(ref_vars, ret_vars, types)
-                suggestions.append(Suggestion(message, self.func.label,
+                suggestions.append(Suggestion(ref_vars, ret_vars, types,
+                                              self.func.label,
                                               min_lineno, max_lineno))
         return suggestions
 

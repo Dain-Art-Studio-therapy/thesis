@@ -56,11 +56,30 @@ def process_args():
     args = parser.parse_args()
     return args
 
+# Generates progress bars.
+def progress_bar(func_num, num_funcs, bar_length=40):
+    percent = func_num / float(num_funcs)
+    arrow = '-' * int(round(percent * bar_length)-1) + '>'
+    spaces = ' ' * (bar_length - len(arrow))
+
+    sys.stdout.write("\rStatus: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+    sys.stdout.flush()
+
+# Removes progress bar.
+def remove_progress_bar():
+    sys.stdout.write("\r")
+    sys.stdout.flush()
+
 # Generates suggestions.
 def generate_suggestions():
+    total_func_complexity = 0
+    suggestions = []
+    progress = 0
+
+    # Process arguments.
     args = process_args()
     source = readfile(args.filename)
-    print('Running file... {}'.format(args.filename))
+    print('Running file... {}\n'.format(args.filename))
 
     # Parse JSON file.
     config = parse_json(args.config)
@@ -72,23 +91,30 @@ def generate_suggestions():
     # Generate CFG.
     generator = CFGGenerator(args.debug)
     cfg = generator.generate(node, source)
+    num_funcs = cfg.get_num_funcs()
+    progress_bar(func_num=0, num_funcs=num_funcs)
 
     # Generates suggestions.
-    total_func_complexity = 0
-
-    for func_block in cfg.get_funcs():
+    for func_num, func_block in enumerate(cfg.get_funcs()):
+        progress_bar(func_num=func_num + 1, num_funcs=num_funcs)
         func_slice = Slice(func_block, config)
-
-        # Print suggestions
-        suggestions = func_slice.get_suggestions()
-        if suggestions:
-            for suggestion in suggestions:
-                print('\t{}'.format(suggestion))
-
-        # Add complexity.
+        suggestions.extend(func_slice.get_suggestions())
         total_func_complexity += func_slice.get_lineno_complexity()
+    remove_progress_bar()
 
-    print('    Line number complexity: {0:.2f}\n'.format(total_func_complexity))
+    # Print suggestions.
+    if suggestions:
+        print('Each message below indicates lines of \'{}\' you may be able to '
+              'refactor into new function. The parameters and return values '
+              'provided correspond with the new function. Use your own '
+              'discretion when determining if the decomposition is fit for '
+              'you.'.format(args.filename))
+        if not args.slow:
+            print('\nFor additional suggestions try using the flag --slow.\n')
+        for suggestion in suggestions:
+            print('{}'.format(suggestion))
+
+    print('Line number complexity: {0:.2f}\n\n'.format(total_func_complexity))
 
 
 def main():

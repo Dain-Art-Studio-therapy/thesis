@@ -19,53 +19,57 @@ from src.models.instruction import Instruction
 # Tests Suggestion class.
 class TestSuggestion(unittest.TestCase):
 
+    def setUp(self):
+        self.ref_vars = ['ref_var', 'ref_var']
+        self.ret_vars = ['ret_var']
+        self.types = [SuggestionType.REMOVE_VAR]
+
+    def _generate_suggestions_list(self):
+        self.suggestion1 = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=1)
+        self.suggestion3 = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=3)
+        self.suggestion35 = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=3, end_lineno=5)
+        self.suggestion4 = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=4)
+        self.suggestion4cpy = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=4)
+        self.suggestions = [self.suggestion4cpy, self.suggestion1,
+                            self.suggestion35, self.suggestion4, self.suggestion3]
+
     def test_init(self):
-        suggestion = Suggestion("message", "funcA", start_lineno=1)
-        self.assertEqual(suggestion.message, "message")
+        suggestion = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=1)
+        self.assertEqual(suggestion.ref_vars, self.ref_vars)
+        self.assertEqual(suggestion.ret_vars, self.ret_vars)
+        self.assertEqual(suggestion.types, self.types)
         self.assertEqual(suggestion.start_lineno, 1)
         self.assertEqual(suggestion.end_lineno, 1)
 
-        suggestion = Suggestion("message", "funcA", start_lineno=1, end_lineno=3)
-        self.assertEqual(suggestion.message, "message")
+        suggestion = Suggestion(self.ref_vars, self.ret_vars, self.types, "funcA", start_lineno=1, end_lineno=3)
+        self.assertEqual(suggestion.ref_vars, self.ref_vars)
+        self.assertEqual(suggestion.ret_vars, self.ret_vars)
+        self.assertEqual(suggestion.types, self.types)
         self.assertEqual(suggestion.start_lineno, 1)
         self.assertEqual(suggestion.end_lineno, 3)
 
     def test_sort(self):
-        suggestion1 = Suggestion("message", "funcA", start_lineno=1)
-        suggestion3 = Suggestion("message", "funcA", start_lineno=3)
-        suggestion35 = Suggestion("message", "funcA", start_lineno=3, end_lineno=5)
-        suggestion4 = Suggestion("message", "funcA", start_lineno=4)
-        suggestion4cpy = Suggestion("message", "funcA", start_lineno=4)
-        suggestions = [suggestion4cpy, suggestion1, suggestion35, suggestion4, suggestion3]
-        suggestions.sort()
+        self._generate_suggestions_list()
+        self.suggestions.sort()
 
-        self.assertEqual(suggestions[0], suggestion1)
-        self.assertEqual(suggestions[1], suggestion3)
-        self.assertEqual(suggestions[2], suggestion35)
-        self.assertEqual(suggestions[3], suggestion4cpy)
-        self.assertEqual(suggestions[4], suggestion4)
+        self.assertEqual(self.suggestions[0], self.suggestion1)
+        self.assertEqual(self.suggestions[1], self.suggestion3)
+        self.assertEqual(self.suggestions[2], self.suggestion35)
+        self.assertEqual(self.suggestions[3], self.suggestion4cpy)
+        self.assertEqual(self.suggestions[4], self.suggestion4)
 
     def test_sorted(self):
-        suggestion1 = Suggestion("message", "funcA", start_lineno=1)
-        suggestion3 = Suggestion("message", "funcA", start_lineno=3)
-        suggestion35 = Suggestion("message", "funcA", start_lineno=3, end_lineno=5)
-        suggestion4 = Suggestion("message", "funcA", start_lineno=4)
-        suggestion4cpy = Suggestion("message", "funcA", start_lineno=4)
-        suggestions = [suggestion4cpy, suggestion4, suggestion35, suggestion3, suggestion1]
-        suggestions = sorted(suggestions)
+        self._generate_suggestions_list()
+        self.suggestions = sorted(self.suggestions)
 
-        self.assertEqual(suggestions[0], suggestion1)
-        self.assertEqual(suggestions[1], suggestion3)
-        self.assertEqual(suggestions[2], suggestion35)
-        self.assertEqual(suggestions[3], suggestion4cpy)
-        self.assertEqual(suggestions[4], suggestion4)
+        self.assertEqual(self.suggestions[0], self.suggestion1)
+        self.assertEqual(self.suggestions[1], self.suggestion3)
+        self.assertEqual(self.suggestions[2], self.suggestion35)
+        self.assertEqual(self.suggestions[3], self.suggestion4cpy)
+        self.assertEqual(self.suggestions[4], self.suggestion4)
 
     def test_str(self):
-        suggestion = Suggestion("message", "funcA", start_lineno=1)
-        self.assertEqual(str(suggestion), "line 1 (funcA) : message")
-
-        suggestion = Suggestion("message", "funcA", start_lineno=1, end_lineno=3)
-        self.assertEqual(str(suggestion), "line 1-3 (funcA) : message")
+        self.skipTest('TODO: Implement')
 
 
 # Framework for testing Slice class.
@@ -368,9 +372,6 @@ class TestSliceGenerateSuggestionFuncs(TestSlice):
 
     def test_get_return_variables(self):
         self.skipTest('TODO: Implement (Important)')
-
-    def test_get_suggestion_message(self):
-        self.skipTest('TODO: Implement')
 
     def test_generate_suggestions(self):
         self.skipTest('TODO: Implement')

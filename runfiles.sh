@@ -42,7 +42,7 @@
 # Not compiling files.
 # python -m src.decomposer codesample/student_solution/hw5/48/cast.py
 
-# Testing after changes to generatecfg
+# Generates many good looking suggestions.
 python -m src.decomposer codesample/student_solution/hw5/41/cast.py
 python -m src.decomposer codesample/student_solution/hw5/36/cast.py
 
