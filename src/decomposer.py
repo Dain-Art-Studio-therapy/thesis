@@ -50,8 +50,9 @@ def readfile(filename):
 def process_args():
     parser = argparse.ArgumentParser(description='Code to decompose.')
     parser.add_argument('filename', help='file to parse')
-    parser.add_argument('--debug', action='store_true', help='print debug messages')
     parser.add_argument('--config', '-c', help='YAML configuration file')
+    parser.add_argument('--slow', action='store_true', help='generate all suggestions')
+    parser.add_argument('--debug', action='store_true', help='print debug messages')
     args = parser.parse_args()
     return args
 

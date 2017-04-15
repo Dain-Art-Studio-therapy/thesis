@@ -593,10 +593,10 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_Attribute(self, node):
         self._visit_item(node.value)
-        self._add_instruction_info(node.lineno, var=node.attr, action=TypeVariable.LOAD)
         if node.attr in _LIST_COMPREHENSION_FUNCTIONS:
             var_name = self._visit_item(node.value)
             self._add_instruction_info(node.lineno, var=var_name, action=TypeVariable.STORE)
+            self._add_instruction_info(node.lineno, var=node.attr, action=TypeVariable.LOAD)
 
     # input: Subscript(expr value, slice slice, expr_context ctx)
     # output: None
@@ -613,7 +613,7 @@ class CFGGenerator(ast.NodeVisitor):
         self._add_instruction_info(node.lineno, var=node.id, action=action)
         return node.id
 
-    # input: arg = (identifier arg, expr? annotation)
+    # input: arg(identifier arg, expr? annotation)
     # output: None
     def visit_arg(self, node):
         # Compatible with Python 3 arguments.
