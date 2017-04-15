@@ -1102,6 +1102,37 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockPredecessorsEqual(exit_block, ['L2', 'L3', 'L4'])
         self.assertBlockSuccessorsEqual(exit_block)
 
+    def test_list_functions(self):
+        # TODO: Add insert, extend, [0] (as ref and def), pop
+        source = ('def funcA():\n'              # line 1
+                  '    x = [1, 2, 3, 4, 5]\n'   # line 2
+                  '    y = [6, 7]\n'            # line 3
+                  '    x.append(2)\n'           # line 4
+                  '    x.extend(y)\n'           # line 5
+                  '    x.insert(3, 3)\n'        # line 6
+                  '    x.pop()\n'               # line 7
+                  '    x[1] = 4\n'              # line 8
+                  '    print(x[0])\n')          # line 9
+        cfg = self._generate_cfg(source)
+        func_block = cfg.get_func('funcA')
+
+        self.assertEqual(func_block.label, 'funcA')
+        self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(3), defined=['y'])
+        self.assertInstrEqual(func_block.get_instruction(4), referenced=['x', 'append'], defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(5), referenced=['x', 'y', 'extend'], defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(6), referenced=['x', 'insert'], defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(7), referenced=['x', 'pop'], defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(8), referenced=['x'], defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(9), referenced=['x', 'print'])
+        self.assertBlockPredecessorsEqual(func_block)
+        self.assertBlockSuccessorsEqual(func_block, ['L1'])
+
+        exit_block = func_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
 
 if __name__ == '__main__':
     unittest.main()

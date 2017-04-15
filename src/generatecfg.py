@@ -7,6 +7,7 @@
 import ast
 import _ast
 import re
+from enum import Enum
 
 from src.globals import *
 from src.models.error import *
@@ -14,10 +15,14 @@ from src.models.block import BlockList, Block, FunctionBlock
 from src.models.instruction import Instruction, InstructionType
 
 
-class TypeVariable(object):
+_LIST_COMPREHENSION_FUNCTIONS = ['append', 'insert', 'extend', 'pop']
+
+
+class TypeVariable(Enum):
     """
     Enumerator that states type of the variable.
     """
+    __order__ = 'LOAD, STORE'
     LOAD = 1
     STORE = 2
 
@@ -584,21 +589,29 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('line %d: (str) "%s"' %(node.lineno, node.s))
     #     self.generic_visit(node)
 
-    # # Attribute(expr value, identifier attr, expr_context ctx)
-    # def visit_Attribute(self, node):
-    #     print('visit_Attribute')
-    #     self.generic_visit(node)
+    # input: Attribute(expr value, identifier attr, expr_context ctx)
+    # output: None
+    def visit_Attribute(self, node):
+        self._visit_item(node.value)
+        self._add_instruction_info(node.lineno, var=node.attr, action=TypeVariable.LOAD)
+        if node.attr in _LIST_COMPREHENSION_FUNCTIONS:
+            var_name = self._visit_item(node.value)
+            self._add_instruction_info(node.lineno, var=var_name, action=TypeVariable.STORE)
 
-    # # Subscript(expr value, slice slice, expr_context ctx)
-    # def visit_Subscript(self, node):
-    #     print('visit_Subscript')
-    #     self.generic_visit(node)
+    # input: Subscript(expr value, slice slice, expr_context ctx)
+    # output: None
+    def visit_Subscript(self, node):
+        self._visit_item(node.slice)
+        var_name = self._visit_item(node.value)
+        action = self._visit_item(node.ctx)
+        self._add_instruction_info(node.lineno, var=var_name, action=action)
 
     # input: Name(identifier id, expr_context ctx)
-    # output: None
+    # output: var_name str
     def visit_Name(self, node):
         action = self._visit_item(node.ctx)
         self._add_instruction_info(node.lineno, var=node.id, action=action)
+        return node.id
 
     # input: arg = (identifier arg, expr? annotation)
     # output: None
