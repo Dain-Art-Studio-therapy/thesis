@@ -7,6 +7,7 @@
 from src.globals import *
 
 
+# Decomposer error.
 class DecomposerError(RuntimeError):
     pass
 
@@ -15,7 +16,7 @@ class DecomposerError(RuntimeError):
 class FileNotFoundError(DecomposerError):
 
     def __init__(self, filename):
-        self.message = "{} not found.".format(filename)
+        self.message = "FileNotFoundError: File '{}' not found.".format(filename)
         self.filename = filename
         Exception.__init__(self, self.message)
 
@@ -24,6 +25,6 @@ class FileNotFoundError(DecomposerError):
 class ElseWithoutIfError(DecomposerError):
 
     def __init__(self, lineno):
-        self.message = "Elif or else without an if on line {}.".format(lineno)
+        self.message = "ElseWithoutIfError: Elif or else without an if on line {}.".format(lineno)
         self.lineno = lineno
         Exception.__init__(self, self.message)

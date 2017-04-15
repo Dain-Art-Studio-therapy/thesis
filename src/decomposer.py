@@ -9,6 +9,7 @@ import ast
 import sys
 
 from src.globals import *
+from src.models.error import *
 from src.models.slice import Slice
 from src.generatecfg import CFGGenerator
 from src.parser import parse_json
@@ -54,8 +55,8 @@ def process_args():
     args = parser.parse_args()
     return args
 
-
-def main():
+# Generates suggestions.
+def generate_suggestions():
     args = process_args()
     source = readfile(args.filename)
     print('Running file... {}'.format(args.filename))
@@ -65,39 +66,35 @@ def main():
 
     # Generate AST.
     node = ast.parse(source)
-    print_ast(node, args.config)
+    print_ast(node, args.debug)
 
     # Generate CFG.
     generator = CFGGenerator(args.debug)
     cfg = generator.generate(node, source)
 
-    # Prints slice calculated on the return statement.
-    total_complexity = 0
-    total_reduced_compexity = 0
+    # Generates suggestions.
     total_func_complexity = 0
 
     for func_block in cfg.get_funcs():
         func_slice = Slice(func_block, config)
 
-        # Get complexities.
-        func_complexity = func_block.get_cyclomatic_complexity()
-        func_reduced_complexity = func_slice.condense_cfg(func_block).get_cyclomatic_complexity()
-        suggestion_complexity = func_slice.get_lineno_complexity()
-
         # Print suggestions
         suggestions = func_slice.get_suggestions()
         if suggestions:
             for suggestion in suggestions:
-                print("\t{}".format(suggestion))
-        # func_slice.print_live_var_data()
+                print('\t{}'.format(suggestion))
 
-        # Total complexity.
-        total_complexity += func_complexity
-        total_reduced_compexity += func_reduced_complexity
-        total_func_complexity += suggestion_complexity
-        # print('\t\t{} - {}  |  {}  {}'.format(func_block.label, func_complexity, func_reduced_complexity, func_complexity))
+        # Add complexity.
+        total_func_complexity += func_slice.get_lineno_complexity()
 
-    print('    TOTAL: {0}  |  {1}  |  {2:.2f}\n'.format(total_complexity, total_reduced_compexity, total_func_complexity))
+    print('    Line number complexity: {0:.2f}\n'.format(total_func_complexity))
+
+
+def main():
+    try:
+        generate_suggestions()
+    except DecomposerError as error:
+        print(error.message)
 
 
 if __name__ == '__main__':
