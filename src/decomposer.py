@@ -60,9 +60,10 @@ def process_args():
     args = parser.parse_args()
     return args
 
+
 # Generates progress bars.
-def progress_bar(args, func_num, num_funcs, bar_length=40):
-    if not args.noprogress:
+def progress_bar(noprogress, func_num, num_funcs, bar_length=40):
+    if not noprogress:
         percent = func_num / float(num_funcs)
         arrow = '-' * int(round(percent * bar_length)-1) + '>'
         spaces = ' ' * (bar_length - len(arrow))
@@ -70,11 +71,13 @@ def progress_bar(args, func_num, num_funcs, bar_length=40):
         sys.stdout.write("\rStatus: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
         sys.stdout.flush()
 
+
 # Removes progress bar.
-def remove_progress_bar(args):
-    if not args.noprogress:
+def remove_progress_bar(noprogress):
+    if not noprogress:
         sys.stdout.write("\r")
         sys.stdout.flush()
+
 
 # Generates suggestions.
 def generate_suggestions():
@@ -98,15 +101,15 @@ def generate_suggestions():
     generator = CFGGenerator(args.debug)
     cfg = generator.generate(node, source)
     num_funcs = cfg.get_num_funcs()
-    progress_bar(args, func_num=0, num_funcs=num_funcs)
+    progress_bar(args.noprogress, func_num=0, num_funcs=num_funcs)
 
     # Generates suggestions.
     for func_num, func_block in enumerate(cfg.get_funcs()):
-        progress_bar(args, func_num=func_num + 1, num_funcs=num_funcs)
+        progress_bar(args.noprogress, func_num=func_num + 1, num_funcs=num_funcs)
         func_slice = Slice(func_block, config, args.slow)
         suggestions.extend(func_slice.get_suggestions())
         total_func_complexity += func_slice.get_lineno_complexity()
-    remove_progress_bar(args, )
+    remove_progress_bar(args.noprogress)
 
     # Print suggestions.
     if suggestions:
