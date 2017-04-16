@@ -75,11 +75,14 @@ class Slice(object):
         FunctionBlock for the current function.
     info: obj
         FunctionBlockInformation containg ReachingDefinitions for current block.
+    slow: bool
+        Whether to generate the full report.
     """
 
-    def __init__(self, func, config):
+    def __init__(self, func, config, slow=False):
         self.func = func
         self.config = config
+        self.slow = slow
 
         # Condense functions and generate analysis methods.
         self.func = self.condense_cfg(self.func)
@@ -369,7 +372,8 @@ class Slice(object):
 
         # TODO: Experiment with.
         variables = [[var] for var in self.variables]
-        # variables.extend([list(subset) for subset in itertools.combinations(self.variables, 3)])
+        if self.slow:
+            variables.extend([list(subset) for subset in itertools.combinations(self.variables, 3)])
 
         # Gets map of linenos to variables to generate suggestions.
         for var in variables:

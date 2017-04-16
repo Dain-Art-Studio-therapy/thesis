@@ -56,22 +56,25 @@ def process_args():
     parser.add_argument('--config', '-c', help='YAML configuration file')
     parser.add_argument('--slow', action='store_true', help='generate all suggestions')
     parser.add_argument('--debug', action='store_true', help='print debug messages')
+    parser.add_argument('--noprogress', action='store_true', help='Do not print progress bar')
     args = parser.parse_args()
     return args
 
 # Generates progress bars.
-def progress_bar(func_num, num_funcs, bar_length=40):
-    percent = func_num / float(num_funcs)
-    arrow = '-' * int(round(percent * bar_length)-1) + '>'
-    spaces = ' ' * (bar_length - len(arrow))
+def progress_bar(args, func_num, num_funcs, bar_length=40):
+    if not args.noprogress:
+        percent = func_num / float(num_funcs)
+        arrow = '-' * int(round(percent * bar_length)-1) + '>'
+        spaces = ' ' * (bar_length - len(arrow))
 
-    sys.stdout.write("\rStatus: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
-    sys.stdout.flush()
+        sys.stdout.write("\rStatus: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+        sys.stdout.flush()
 
 # Removes progress bar.
-def remove_progress_bar():
-    sys.stdout.write("\r")
-    sys.stdout.flush()
+def remove_progress_bar(args):
+    if not args.noprogress:
+        sys.stdout.write("\r")
+        sys.stdout.flush()
 
 # Generates suggestions.
 def generate_suggestions():
@@ -95,15 +98,15 @@ def generate_suggestions():
     generator = CFGGenerator(args.debug)
     cfg = generator.generate(node, source)
     num_funcs = cfg.get_num_funcs()
-    progress_bar(func_num=0, num_funcs=num_funcs)
+    progress_bar(args, func_num=0, num_funcs=num_funcs)
 
     # Generates suggestions.
     for func_num, func_block in enumerate(cfg.get_funcs()):
-        progress_bar(func_num=func_num + 1, num_funcs=num_funcs)
-        func_slice = Slice(func_block, config)
+        progress_bar(args, func_num=func_num + 1, num_funcs=num_funcs)
+        func_slice = Slice(func_block, config, args.slow)
         suggestions.extend(func_slice.get_suggestions())
         total_func_complexity += func_slice.get_lineno_complexity()
-    remove_progress_bar()
+    remove_progress_bar(args, )
 
     # Print suggestions.
     if suggestions:

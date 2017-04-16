@@ -43,7 +43,7 @@
 # python -m src.decomposer codesample/student_solution/hw5/48/cast.py
 
 # Generates many good looking suggestions.
-python -m src.decomposer codesample/student_solution/hw5/41/cast.py
+python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
 python -m src.decomposer codesample/student_solution/hw5/36/cast.py
 
 # # Not fully working for diff_ref_livar.
