@@ -4,15 +4,18 @@
 # Python Version: 3.5
 
 
+from __future__ import print_function
 import argparse
 import ast
 import sys
 
-from src.globals import *
 from src.models.error import *
 from src.models.slice import Slice
 from src.generatecfg import CFGGenerator
 from src.parser import parse_json
+
+
+_LEN_PROGRESS_BAR = 40
 
 
 # Prints AST node recursively.
@@ -62,11 +65,11 @@ def process_args():
 
 
 # Generates progress bars.
-def progress_bar(noprogress, func_num, num_funcs, bar_length=40):
+def progress_bar(noprogress, func_num, num_funcs):
     if not noprogress:
         percent = func_num / float(num_funcs)
-        arrow = '-' * int(round(percent * bar_length)-1) + '>'
-        spaces = ' ' * (bar_length - len(arrow))
+        arrow = '-' * int(round(percent * _LEN_PROGRESS_BAR)-1) + '>'
+        spaces = ' ' * (_LEN_PROGRESS_BAR - len(arrow))
 
         sys.stdout.write("\rStatus: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
         sys.stdout.flush()
@@ -88,7 +91,7 @@ def generate_suggestions():
     # Process arguments.
     args = process_args()
     source = readfile(args.filename)
-    print('Running file... {}\n'.format(args.filename))
+    print('\n\nRunning file... {}\n'.format(args.filename))
 
     # Parse JSON file.
     config = parse_json(args.config)
@@ -113,15 +116,23 @@ def generate_suggestions():
 
     # Print suggestions.
     if suggestions:
-        print('Each message below indicates lines of \'{}\' you may be able to '
-              'refactor into new function. The parameters and return values '
-              'provided correspond with the new function. Use your own '
-              'discretion when determining if the decomposition is fit for '
-              'you.'.format(args.filename))
-        if not args.slow:
-            print('\nFor additional suggestions try using the flag --slow.\n')
+        # TODO: REMOVE CONDITION AND \t.
+        if not args.noprogress:
+            print('Each message below indicates lines of \'{}\' you may be able to '
+                  'refactor into new function. The parameters and return values '
+                  'provided correspond with the new function. Use your own '
+                  'discretion when determining if the decomposition is fit for '
+                  'you.'.format(args.filename), end=' ')
+            if not args.slow:
+                print('For additional suggestions try using the flag --slow.', end=' ')
         for suggestion in suggestions:
-            print('{}'.format(suggestion))
+            print('\n\n\t{}'.format(suggestion))
+    else:
+        print('No suggestions detected.', end=' ')
+        if not args.slow:
+            print('For additional suggestions try using the flag --slow.\n')
+        else:
+            print('{}'.format(' ' * _LEN_PROGRESS_BAR))
 
     print('Line number complexity: {0:.2f}\n\n'.format(total_func_complexity))
 

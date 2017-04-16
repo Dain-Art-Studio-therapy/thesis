@@ -879,6 +879,9 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockPredecessorsEqual(exit_block, ['L2', 'L4', 'L5'])
         self.assertBlockSuccessorsEqual(exit_block)
 
+    def test_return_if_elif(self):
+        self.skipTest('TODO: Implement (Important)')
+
     def test_return_for_with_return(self):
         source = ('def funcA(y):\n'                 # line 1
                   '    for i in range(5):\n'        # line 2

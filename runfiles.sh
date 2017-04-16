@@ -45,6 +45,7 @@
 # Generates many good looking suggestions.
 time python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
 time python -m src.decomposer codesample/student_solution/hw5/36/cast.py --slow
+time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow
 
 # # Not fully working for diff_ref_livar.
 # python -m src.decomposer codesample/student_solution/hw5/33/cast.py

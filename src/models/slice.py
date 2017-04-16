@@ -14,6 +14,7 @@ from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
 from src.models.dataflowanalysis import *
 from src.models.structures import Queue
+from src.models.instruction import InstructionType
 
 
 class SuggestionType(Enum):
@@ -366,14 +367,28 @@ class Slice(object):
     # ---------- GENERATES SUGGESTION TYPES ---------------
     # -----------------------------------------------------
 
+    # Gets the variables in a groups.
+    def _get_groups_variables(self, size):
+        groups = set()
+        variables = []
+        for block in self.sorted_blocks:
+            for instr in block.get_instructions():
+                instr_variables = instr.defined | instr.referenced
+                for var in instr_variables:
+                    variables.append(var)
+                    if len(variables) == size:
+                        groups.add(frozenset(variables))
+                        variables.pop(0)
+        return groups
+
     # Gets suggestions based on removing variables.
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
         suggestions = set()
 
-        # TODO: Experiment with.
-        variables = [[var] for var in self.variables]
+        variables = [[var] for var in self.variables] # 6m21.758s
         if self.slow:
-            variables.extend([list(subset) for subset in itertools.combinations(self.variables, 3)])
+            variables.extend([list(var) for var in self._get_groups_variables(size=3)]) # 14m20.497s (only 3)
+            variables.extend([list(var) for var in self._get_groups_variables(size=4)]) # 19m17.748s (3 + 4) - no change
 
         # Gets map of linenos to variables to generate suggestions.
         for var in variables:
@@ -484,14 +499,21 @@ class Slice(object):
 
     # Gets the return values in the range of the line numbers.
     def _get_return_variables(self, min_lineno, max_lineno):
-        variables = set()
-        defined = set()
+        variables = set()   # Contains variables to be returned.
+        defined = set()     # Contains variables defined in range.
+
+        # Gets all variables defined in range.
         for lineno in range(min_lineno, max_lineno+1):
             instr_info = self.live_var_info.get_instruction_info(lineno)
             if instr_info:
                 for var in instr_info.defined:
                     defined.add(var)
+                # Adds variables referenced in RETURN to 'variables'.
+                instr = self.live_var_info.get_instruction(lineno)
+                if instr.instruction_type == InstructionType.RETURN:
+                    variables |= instr_info.referenced
 
+        # Gets all variables referenced from those defined in range.
         for lineno in range(max_lineno+1, max(self.linenos)+1):
             instr_info = self.live_var_info.get_instruction_info(lineno)
             if instr_info:
