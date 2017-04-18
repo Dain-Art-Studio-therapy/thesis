@@ -348,6 +348,9 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
 # Tests Slice generating suggestions types related helper functions.
 class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
 
+    def test_get_groups_variables(self):
+        self.skipTest('TODO: Implement (Important)')
+
     def test_get_suggestions_remove_variables(self):
         self.skipTest('TODO: Implement')
 

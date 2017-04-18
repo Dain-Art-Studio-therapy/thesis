@@ -125,8 +125,9 @@ def generate_suggestions():
                   'you.'.format(args.filename), end=' ')
             if not args.slow:
                 print('For additional suggestions try using the flag --slow.', end=' ')
+            print("\n")
         for suggestion in suggestions:
-            print('\n\n\t{}'.format(suggestion))
+            print('\t{}'.format(suggestion))
     else:
         print('No suggestions detected.', end=' ')
         if not args.slow:

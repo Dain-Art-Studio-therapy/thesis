@@ -5,7 +5,7 @@ FILES=codesample/student_solution/$HW_NUM/*/cast.py
 for f in $FILES
 do
     # echo "Running file... $f"
-    python -m src.decomposer $f --noprogress
+    python -m src.decomposer $f --noprogress --slow
 done
 
 # Runs professor code.
@@ -17,4 +17,4 @@ else
     PROF_FILENAME=$FILE/cast.py
 fi
 # echo "\nProfessor solution... $PROF_FILENAME"
-python -m src.decomposer $PROF_FILENAME --noprogress
+python -m src.decomposer $PROF_FILENAME --noprogress --slow

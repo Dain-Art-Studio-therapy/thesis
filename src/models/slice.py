@@ -387,8 +387,8 @@ class Slice(object):
 
         variables = [[var] for var in self.variables] # 6m21.758s
         if self.slow:
-            variables.extend([list(var) for var in self._get_groups_variables(size=3)]) # 14m20.497s (only 3)
-            variables.extend([list(var) for var in self._get_groups_variables(size=4)]) # 19m17.748s (3 + 4) - no change
+            variables.extend([list(var) for var in self._get_groups_variables(size=3)])
+            variables.extend([list(var) for var in self._get_groups_variables(size=4)])
 
         # Gets map of linenos to variables to generate suggestions.
         for var in variables:
@@ -433,6 +433,7 @@ class Slice(object):
         cur_control = set()
         exclude_control = set()
 
+        # TODO: Check multiline after (possibly use _adjust_multiline_groups)
         for block in reversed(self.sorted_blocks):
             info = self.live_var_info.get_block_info(block)
             instrs = set()

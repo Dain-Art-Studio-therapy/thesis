@@ -34,18 +34,8 @@
 # python -m src.decomposer codesample/student_solution/hw5/11/cast.py
 # python -m src.decomposer codesample/student_solution/hw5/18/cast.py
 
-# Talking 4/7/2017
-# python -m src.decomposer codesample/student_solution/hw4/4/cast.py
-# python -m src.decomposer codesample/student_solution/hw4/14/cast.py # TODO: Look @.
-# python -m src.decomposer codesample/student_solution/hw6/14/blur.py
-
 # Not compiling files.
 # python -m src.decomposer codesample/student_solution/hw5/48/cast.py
-
-# Generates many good looking suggestions.
-time python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
-time python -m src.decomposer codesample/student_solution/hw5/36/cast.py --slow
-time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow
 
 # # Not fully working for diff_ref_livar.
 # python -m src.decomposer codesample/student_solution/hw5/33/cast.py
@@ -53,3 +43,17 @@ time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow
 # python -m src.decomposer codesample/student_solution/hw5/37/cast.py
 # python -m src.decomposer codesample/student_solution/hw5/39/cast.py
 # python -m src.decomposer codesample/student_solution/hw5/52/cast.py
+
+# FILES TO 100% EXAMINE FOR FRIDAY.
+# Talking 4/7/2017
+# python -m src.decomposer codesample/student_solution/hw4/4/cast.py
+# python -m src.decomposer codesample/student_solution/hw4/14/cast.py # TODO: Look @.
+# python -m src.decomposer codesample/student_solution/hw6/14/blur.py
+
+# Generates many good looking suggestions. Difference between fast & slow.
+# time python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
+# time python -m src.decomposer codesample/student_solution/hw5/36/cast.py --slow
+# time python -m src.decomposer codesample/student_solution/hw5/18/cast.py --slow
+# time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow
+time python -m src.decomposer codesample/student_solution/hw4/14/cast.py
+
