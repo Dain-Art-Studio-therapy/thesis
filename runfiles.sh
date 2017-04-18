@@ -54,6 +54,7 @@
 # time python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
 # time python -m src.decomposer codesample/student_solution/hw5/36/cast.py --slow
 # time python -m src.decomposer codesample/student_solution/hw5/18/cast.py --slow
-# time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow
-time python -m src.decomposer codesample/student_solution/hw4/14/cast.py
+time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow
+# time python -m src.decomposer codesample/student_solution/hw4/14/cast.py --slow
+# time python -m src.decomposer codesample/student_solution/hw5/27/cast.py --slow # Really interesting result.
 

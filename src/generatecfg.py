@@ -37,12 +37,16 @@ class TokenGenerator(object):
         Whether or not not include the conditional in the multiline groups.
     """
     def __init__(self, source, include_conditional=True):
+        # Generates lines and line types.
         self.lines = source.splitlines(True)
         self.blank_lines = self._get_blank_lines()
         self.comments = self._get_commented_lines()
-        self.indentation = self._get_indentation(self.comments)
+
+        # Generates extra information about the lines.
+        self.indentation = self._get_indentation()
+        self.line_indent = self._get_line_indentation()
         self.multiline = self._get_multiline_instructions()
-        self.conditionals = self._get_conditionals(self.indentation, self.comments)
+        self.conditionals = self._get_conditionals()
 
         if include_conditional:
             for lineno, group in self.conditionals.items():
@@ -125,7 +129,7 @@ class TokenGenerator(object):
         return multiline
 
     # Gets the indentation for a program.
-    def _get_indentation(self, comments):
+    def _get_indentation(self):
         if not self.lines:
             return None
 
@@ -133,20 +137,31 @@ class TokenGenerator(object):
         line = self.lines[lineno-1]
 
         while (lineno < len(self.lines) and
-               (lineno in comments or
+               (lineno in self.comments or
                 line == line.lstrip() or not line.strip())):
             lineno += 1
             line = self.lines[lineno-1]
 
         return self._get_space_start(line)
 
+    # Gets the indentation for each line in the program.
+    def _get_line_indentation(self):
+        line_indent = {}
+        lineno = 1
+        for line in self.lines:
+            line = self._get_space_start(line)
+            count = len(tuple(re.finditer(self.indentation, line)))
+            line_indent[lineno] = count
+            lineno += 1
+        return line_indent
+
     # Returns the groups of conditionals.
-    def _get_conditionals(self, indentation, comments):
+    def _get_conditionals(self):
         groups = {}
         conditionals = {}
         for lineno, line in enumerate(self.lines, 1):
-            if lineno not in comments:
-                line_indentation = self._get_line_indentation(line, indentation)
+            if lineno not in self.comments:
+                line_indentation = self.line_indent[lineno]
                 if re.search(r'elif |elif \(|else\:', line):
                     if line_indentation not in conditionals:
                         raise ElseWithoutIfError(lineno)
@@ -168,12 +183,6 @@ class TokenGenerator(object):
     # Returns the space at the start of the line.
     def _get_space_start(self, line):
         return re.search(r'(\s*)[^\s]*', line).group(1)
-
-    # Gets the indentation for a particular line in the program.
-    def _get_line_indentation(self, line, indentation):
-        line = self._get_space_start(line)
-        return len(tuple(re.finditer(indentation, line)))
-
 
 
 class CFGGenerator(ast.NodeVisitor):
@@ -219,6 +228,8 @@ class CFGGenerator(ast.NodeVisitor):
                     lineno, self.tokens.multiline[lineno])
             if not self.last_lineno or lineno > self.last_lineno:
                 self.last_lineno = lineno
+            indent = self.tokens.line_indent[lineno]
+            self.current_block.add_instr_indent(lineno, indent)
 
     # Adds a successor to the block if it is not null.
     def _add_successor(self, block, successor):

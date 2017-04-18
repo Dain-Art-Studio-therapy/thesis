@@ -174,6 +174,11 @@ class BlockInterface(ABC):
         instruction = self._get_instruction(lineno)
         instruction.control = control
 
+    # Adds indentation at the line number.
+    def add_instr_indent(self, lineno, indentation):
+        instruction = self._get_instruction(lineno)
+        instruction.indentation = indentation
+
     # Adds instruction to instruction list.
     def add_instruction(self, instruction):
         self._instructions[instruction.lineno] = copy.deepcopy(instruction)

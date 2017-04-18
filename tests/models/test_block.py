@@ -203,6 +203,16 @@ class TestBlock(unittest.TestCase):
         self.block1.add_instr_control(lineno=2, control=1)
         self.assertEqual(self.block1._instructions[2].control, 1)
 
+    def test_add_instr_indent(self):
+        self.block1.add_reference(lineno=1, variable='varA')
+        self.block1.add_reference(lineno=2, variable='varA')
+        self.assertEqual(self.block1._instructions[1].referenced, set(['varA']))
+        self.assertEqual(self.block1._instructions[2].referenced, set(['varA']))
+        self.assertEqual(self.block1._instructions[2].indentation, None)
+
+        self.block1.add_instr_indent(lineno=2, indentation=1)
+        self.assertEqual(self.block1._instructions[2].indentation, 1)
+
     def test_method_add_instruction(self):
         instr = Instruction(lineno=1)
         instr.referenced.add('varA')

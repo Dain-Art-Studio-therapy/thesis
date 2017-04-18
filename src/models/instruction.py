@@ -28,6 +28,8 @@ class Instruction(object):
         Variables referenced in the instruction.
     defined: set(str)
         Variables defined in the block.
+    indentation: int
+        Indentation level.
     lineno: int
         Line number.
     control: int
@@ -39,6 +41,7 @@ class Instruction(object):
         self.lineno = lineno
         self.referenced = set()
         self.defined = set()
+        self.indentation = None
         self.control = None
         self.multiline = set()
 
