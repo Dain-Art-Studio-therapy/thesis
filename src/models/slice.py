@@ -331,6 +331,7 @@ class Slice(object):
     def _group_linenos(self, linenos, max_diff_linenos, unimportant_linenos):
         groups = self._generate_groups(linenos, max_diff_linenos)
 
+        # TODO: Make function.
         # Connects groups separated by comments/blank lines.
         if len(groups) > 1:
             for leftgroup, rightgroup in zip(groups[:-1], groups[1:]):
@@ -342,7 +343,32 @@ class Slice(object):
                     linenos |= linenos_in_gap
 
             groups = self._generate_groups(linenos, max_diff_linenos)
-        return groups
+
+        # TODO: Make function.
+        # Splits up any groups where the indent goes out.
+        suggestions = []
+        for linenos in groups:
+            if linenos.size:
+                start_lineno = start_indent = cur_indent = None
+                index = 0
+
+                # Splits group based on indentation.
+                while index < len(linenos):
+                    lineno = linenos[index]
+                    instr = self.reaching_def_info.get_instruction(lineno)
+                    if instr:
+                        cur_indent = instr.indentation
+                        if not start_indent:
+                            start_indent = cur_indent
+                            start_lineno = lineno
+                        elif cur_indent < start_indent:
+                            suggestions.append((start_lineno, linenos[index - 1]))
+                            start_indent = cur_indent
+                            start_lineno = lineno
+                    index += 1
+                suggestions.append((start_lineno, linenos[index - 1]))
+
+        return suggestions
 
     # Gets groups of line numbers with greater than max diff between slices.
     def _compare_slice_maps(self, slice_map, reduced_slice_map,
@@ -406,9 +432,9 @@ class Slice(object):
                                                self.config.max_dist_between_grouped_linenos)
 
             # Adds groups of linenos.
-            for group in linenos:
-                if len(group) >= self.config.min_lines_in_suggestion:
-                    suggestions.add((min(group), max(group)))
+            for min_lineno, max_lineno in linenos:
+                if self._range(min_lineno, max_lineno) >= self.config.min_lines_in_suggestion:
+                    suggestions.add((min_lineno, max_lineno))
 
         return suggestions, SuggestionType.REMOVE_VAR
 
@@ -478,6 +504,10 @@ class Slice(object):
     def _range(self, min_lineno, max_lineno):
         return max_lineno - min_lineno + 1
 
+    # TODO: Adjust the conditions for excluding based on number fo lines of func
+    #       E.g. hw5/19/cast.py --> lines 17-62
+    #   - Ideally based on some metric of complexity
+    #     (but that might be too complex).
     # Determines if the suggestion is valid.
     def _is_valid_suggestion(self, ref_vars, ret_vars, min_lineno, max_lineno):
         ref_vars = set(ref_vars)
