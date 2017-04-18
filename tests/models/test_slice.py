@@ -321,7 +321,7 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
                   '     print(%s)\n' %var)              # line 10
         return source
 
-    def test_adjust_linenos_multiline_groups(self):
+    def test_adjust_adjacent_multiline_groups(self):
         self.skipTest('TODO: Implement (Important)')
 
     def test_generate_groups(self):

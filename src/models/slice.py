@@ -306,8 +306,9 @@ class Slice(object):
     # ---------- COMPARES SLICE MAPS ---------------
     # ----------------------------------------------
 
-    # Adjust line numbers based on multiline groups.
-    def _adjust_linenos_multiline_groups(self, linenos, unimportant_linenos):
+    # Adjust line numbers based on adjacent multiline groups.
+    # Doesn't assure the multiline groups are grouped together.
+    def _adjust_adjacent_multiline_groups(self, linenos, unimportant_linenos):
         final_linenos = set()
         for cur_lineno in linenos:
             instr = self.reaching_def_info.get_instruction(cur_lineno)
@@ -347,20 +348,27 @@ class Slice(object):
     def _compare_slice_maps(self, slice_map, reduced_slice_map,
                             min_diff_complexity, max_diff_linenos):
         linenos = set()
+        cur_control = set()
+        excluded_control = set()
 
         # Get line numbers with reduced complexity.
-        for lineno in self.linenos:
-            if lineno in slice_map and lineno in reduced_slice_map:
+        for lineno in reversed(self.linenos):
+            if lineno in slice_map and lineno not in excluded_control:
                 slice_complexity = slice_map[lineno]['complexity']
                 reduced_slice_complexity = reduced_slice_map[lineno]['complexity']
+                instr = self.reaching_def_info.get_instruction(lineno)
 
                 # If enough decrease in complexity, add line and grouped lines.
                 if (slice_complexity - reduced_slice_complexity) >= min_diff_complexity:
                     linenos.add(lineno)
+                    cur_control.add(instr.control)
+                else:
+                    excluded_control |= cur_control
+                    cur_control = set()
 
         # Groups line numbers within the epsilon of each other.
         unimportant_linenos = self.func.blank_lines.union(self.func.comments)
-        linenos = self._adjust_linenos_multiline_groups(linenos, unimportant_linenos)
+        linenos = self._adjust_adjacent_multiline_groups(linenos, unimportant_linenos)
         return self._group_linenos(linenos, max_diff_linenos, unimportant_linenos)
 
     # -----------------------------------------------------
@@ -537,6 +545,11 @@ class Slice(object):
                 suggestions.append(Suggestion(ref_vars, ret_vars, types,
                                               self.func.label,
                                               min_lineno, max_lineno))
+            else:
+                pass
+                # print(Suggestion(ref_vars, ret_vars, types,
+                #                  self.func.label,
+                #                  min_lineno, max_lineno))
         return suggestions
 
     # Adds suggestions to suggestion map.
