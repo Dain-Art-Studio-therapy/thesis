@@ -358,7 +358,7 @@ class Slice(object):
                     instr = self.reaching_def_info.get_instruction(lineno)
                     if instr:
                         cur_indent = instr.indentation
-                        if not start_indent:
+                        if start_indent is None:
                             start_indent = cur_indent
                             start_lineno = lineno
                         elif cur_indent < start_indent:
