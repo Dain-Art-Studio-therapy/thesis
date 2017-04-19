@@ -404,7 +404,6 @@ class Slice(object):
             suggestions.add((min_lineno, final_lineno))
         return suggestions
 
-    # TODO: Refactor to cache suggestions for a given lineno range...
     # Splits the groups of line numbers to make them valid.
     def _split_groups_linenos(self, groups):
         final_suggestions = set()
@@ -412,10 +411,13 @@ class Slice(object):
             key = frozenset((min_lineno, max_lineno))
             if key not in self._SUGGESTION_CACHE:
                 suggestions = set([(min_lineno, max_lineno)])
+                prev_suggestion = None
+                index = 0
 
-                # TODO: Make "2" a parameter in config file.
                 # Run suggestions multiple times.
-                for iteration in range(2):
+                while prev_suggestion != suggestions:
+                    index += 1
+                    prev_suggestion = suggestions
                     suggestions = self.split_groups_linenos_indentation(suggestions)
                     suggestions = self._adjust_multiline_groups(suggestions)
                     suggestions = self._adjust_control_groups(suggestions)
@@ -431,6 +433,7 @@ class Slice(object):
         cur_control = set()
         excluded_control = set()
 
+        # TODO: Try and remove control from here and see what happens.
         # Get line numbers with reduced complexity.
         for lineno in reversed(self.linenos):
             if lineno in slice_map and lineno not in excluded_control:
@@ -446,10 +449,7 @@ class Slice(object):
                     excluded_control |= cur_control
                     cur_control = set()
 
-        # # Groups line numbers within the epsilon of each other.
-        # linenos = self._adjust_adjacent_multiline_groups(linenos)
-        # return self._group_linenos(linenos, max_diff_linenos)
-
+        # Exits if no groups of line numbers found.
         if not linenos:
             return []
 
@@ -526,6 +526,8 @@ class Slice(object):
                     min_lineno = instr.lineno
                 max_lineno = instr.lineno
                 prev_ref_set = instr.referenced
+
+        suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.SIMILAR_REF
 
     # Gets suggestions based on differences in live var and referenced in a block.
@@ -563,6 +565,8 @@ class Slice(object):
                 linenos = set()
                 multiline = set()
                 cur_control = set()
+
+        suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.DIFF_REF_LIVAR
 
     # ------------------------------------------------
@@ -642,6 +646,7 @@ class Slice(object):
                                               self.func.label,
                                               min_lineno, max_lineno))
             else:
+                # TODO: REMOVE.
                 pass
                 # print(Suggestion(ref_vars, ret_vars, types,
                 #                  self.func.label,

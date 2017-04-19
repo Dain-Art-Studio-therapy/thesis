@@ -410,7 +410,13 @@ class CFGGenerator(ast.NodeVisitor):
 
             # If else block then add instruction type ELSE as a placeholder.
             if not isinstance(node.orelse[0], _ast.If):
+                # Gets line number of else.
                 lineno = node.orelse[0].lineno - 1
+                while (lineno in self.tokens.comments or
+                       lineno in self.tokens.blank_lines):
+                    lineno -= 1
+
+                # Adds ELSE instruction.
                 self._add_instruction_info(lineno, instr_type=InstructionType.ELSE)
                 self.current_control = lineno
 
