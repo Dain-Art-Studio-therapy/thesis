@@ -400,6 +400,10 @@ class Slice(object):
     # ---------- GENERATES SUGGESTION TYPES ---------------
     # -----------------------------------------------------
 
+    # Gets the length of the range of the line numbers.
+    def _range(self, min_lineno, max_lineno):
+        return max_lineno - min_lineno + 1
+
     # Gets the variables in a groups.
     def _get_groups_variables(self, size):
         groups = set()
@@ -499,10 +503,6 @@ class Slice(object):
     # ---------- GENERATES SUGGESTIONS ---------------
     # ------------------------------------------------
 
-    # Gets the length of the range of the line numbers.
-    def _range(self, min_lineno, max_lineno):
-        return max_lineno - min_lineno + 1
-
     # TODO: Adjust the conditions for excluding based on number of lines of func
     #       E.g. hw5/19/cast.py --> lines 17-62
     #   - Ideally based on some metric of complexity
@@ -511,13 +511,14 @@ class Slice(object):
     def _is_valid_suggestion(self, ref_vars, ret_vars, min_lineno, max_lineno):
         ref_vars = set(ref_vars)
         ret_vars = set(ret_vars)
-        lines_suggestions = self._range(min_lineno, max_lineno)
-        lines_func = len(self.linenos) - lines_suggestions
+        linenos = set(range(min_lineno, max_lineno + 1))
+        linenos_instrs = linenos - self.func.unimportant
+        lines_func = len(self.linenos) - len(linenos_instrs)
 
         return (len(ref_vars) <= self.config.max_variables_parameter_in_suggestion and
                 len(ref_vars) >= self.config.min_variables_parameter_in_suggestion and
                 len(ret_vars) <= self.config.max_variables_return_in_suggestion and
-                lines_suggestions >= self.config.min_lines_in_suggestion and
+                len(linenos_instrs) >= self.config.min_lines_in_suggestion and
                 lines_func >= self.config.min_lines_func_not_in_suggestion and
                 ref_vars != self.func.get_function_parameters())
 
