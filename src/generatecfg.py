@@ -147,12 +147,10 @@ class TokenGenerator(object):
     # Gets the indentation for each line in the program.
     def _get_line_indentation(self):
         line_indent = {}
-        lineno = 1
-        for line in self.lines:
-            line = self._get_space_start(line)
-            count = len(tuple(re.finditer(self.indentation, line)))
+        for lineno, line in enumerate(self.lines, 1):
+            start_line = self._get_space_start(line)
+            count = len(tuple(re.finditer(self.indentation, start_line)))
             line_indent[lineno] = count
-            lineno += 1
         return line_indent
 
     # Returns the groups of conditionals.

@@ -97,9 +97,11 @@ class Slice(object):
         self.sorted_blocks = self.func.get_sorted_blocks()
         self.linenos = self.func.get_linenos_in_func()
         self.variables = self._get_variables_in_func()
+        self.controls = self._get_map_control_linenos_in_func()
 
         # Global caches.
         self._SLICE_CACHE = {}
+        self._SUGGESTION_CACHE = {}
 
     # Gets the variables in a function.
     def _get_variables_in_func(self):
@@ -109,6 +111,18 @@ class Slice(object):
                 for var in instr.defined:
                     variables.add(var)
         return variables
+
+    # TODO: TEST
+    # Generates a map of lineno of control to the linenos it controls.
+    def _get_map_control_linenos_in_func(self):
+        controls = {}
+        for lineno in self.linenos:
+            instr = self.reaching_def_info.get_instruction(lineno)
+            if instr and instr.control:
+                if instr.control not in controls:
+                    controls[instr.control] = set()
+                controls[instr.control].add(lineno)
+        return controls
 
     # -------------------------------------
     # ---------- GENERATES SLICE ----------
@@ -306,69 +320,109 @@ class Slice(object):
     # ---------- COMPARES SLICE MAPS ---------------
     # ----------------------------------------------
 
-    # Adjust line numbers based on adjacent multiline groups.
-    # Doesn't assure the multiline groups are grouped together.
-    def _adjust_adjacent_multiline_groups(self, linenos):
-        final_linenos = set()
-        for cur_lineno in linenos:
-            instr = self.reaching_def_info.get_instruction(cur_lineno)
-            valid_lines = [lineno in self.func.unimportant or lineno in linenos
-                           for lineno in instr.multiline]
-
-            # Add lineno if all lines within multiline group are valid.
-            if all(valid_lines):
-                final_linenos.add(cur_lineno)
-                final_linenos |= instr.multiline
-        return final_linenos
-
+    # TODO: REMOVE max_diff_linenos (hardcode).
     # Groups line numbers with greater than max diff between slices.
-    def _generate_groups(self, linenos, max_diff_linenos):
-        linenos = sorted(linenos)
-        return split(linenos, where(diff(linenos) >= max_diff_linenos)[0] + 1)
+    def _generate_groups(self, linenos, max_diff_linenos=2):
+        linenos = sorted(list(linenos))
+        groups = split(linenos, where(diff(linenos) >= max_diff_linenos)[0] + 1)
+        return set([(min(linenos), max(linenos))
+                    for linenos in groups if linenos.size > 1])
 
-    # Groups line numbers with greater than max diff between slices.
-    # Adds comments/blank lines to connect groups.
-    def _group_linenos(self, linenos, max_diff_linenos):
-        groups = self._generate_groups(linenos, max_diff_linenos)
+    # Splits the groups of line numbers if indentation goes out.
+    def split_groups_linenos_indentation(self, groups):
+        suggestions = set()
+        for min_lineno, max_lineno in groups:
+            index = 0
+            linenos = range(min_lineno, max_lineno + 1)
+            start_indent = cur_indent = None
+            start_lineno = min_lineno
 
-        # TODO: Make function.
-        # Connects groups separated by comments/blank lines.
-        if len(groups) > 1:
-            for leftgroup, rightgroup in zip(groups[:-1], groups[1:]):
-                linenos_in_gap = set(range(max(leftgroup)+1, min(rightgroup)))
+            # Splits group based on indentation.
+            while index < len(linenos):
+                lineno = linenos[index]
+                instr = self.reaching_def_info.get_instruction(lineno)
+                if instr:
+                    cur_indent = instr.indentation
+                    if start_indent is None:
+                        start_indent = cur_indent
+                        start_lineno = lineno
+                    elif cur_indent < start_indent:
+                        suggestions.add((start_lineno, linenos[index - 1]))
+                        start_indent = cur_indent
+                        start_lineno = lineno
+                index += 1
+            suggestions.add((start_lineno, linenos[index - 1]))
+        return suggestions
 
-                # Add linenos if all linenos in gap are comments/blank lines.
-                unimportant = linenos_in_gap.intersection(self.func.unimportant)
-                if len(unimportant) == len(linenos_in_gap):
-                    linenos |= linenos_in_gap
+    # Removes line numbers if all multiline instrs aren't included.
+    def _adjust_multiline_groups(self, groups):
+        suggestions = set()
+        for min_lineno, max_lineno in groups:
+            linenos = range(min_lineno, max_lineno + 1)
+            final_linenos = set()
 
-            groups = self._generate_groups(linenos, max_diff_linenos)
+            for cur_lineno in linenos:
+                instr = self.reaching_def_info.get_instruction(cur_lineno)
+                if instr:
+                    valid_lines = [lineno in linenos for lineno in instr.multiline]
 
-        # TODO: Make function.
-        # Splits up any groups where the indent goes out.
-        suggestions = []
-        for linenos in groups:
-            if linenos.size:
-                start_lineno = start_indent = cur_indent = None
-                index = 0
+                    # Add lineno if all lines within multiline group are valid.
+                    if all(valid_lines):
+                        final_linenos.add(cur_lineno)
+                        final_linenos |= instr.multiline
+                else:
+                    final_linenos.add(cur_lineno)
+            suggestions |= self._generate_groups(final_linenos)
+        return suggestions
 
-                # Splits group based on indentation.
-                while index < len(linenos):
-                    lineno = linenos[index]
-                    instr = self.reaching_def_info.get_instruction(lineno)
-                    if instr:
-                        cur_indent = instr.indentation
-                        if start_indent is None:
-                            start_indent = cur_indent
-                            start_lineno = lineno
-                        elif cur_indent < start_indent:
-                            suggestions.append((start_lineno, linenos[index - 1]))
-                            start_indent = cur_indent
-                            start_lineno = lineno
-                    index += 1
-                suggestions.append((start_lineno, linenos[index - 1]))
+    # Removes control flow where body is not included.
+    def _adjust_control_groups(self, groups):
+        suggestions = set()
+        for min_lineno, max_lineno in groups:
+            linenos = range(min_lineno, max_lineno + 1)
+            final_linenos = set()
+
+            for lineno in linenos:
+                if lineno in self.controls:
+                    controls = self.controls[lineno]
+                    intersection = controls.intersection(linenos)
+                    if len(intersection) == len(controls):
+                        final_linenos.add(lineno)
+                else:
+                    final_linenos.add(lineno)
+            suggestions |= self._generate_groups(final_linenos)
 
         return suggestions
+
+    # Trims the ends of the suggestion to remove unimportant lines.
+    def _trim_unimportant(self, groups):
+        suggestions = set()
+        for min_lineno, max_lineno in groups:
+            final_lineno = max_lineno
+            while final_lineno in self.func.unimportant:
+                final_lineno -= 1
+            suggestions.add((min_lineno, final_lineno))
+        return suggestions
+
+    # TODO: Refactor to cache suggestions for a given lineno range...
+    # Splits the groups of line numbers to make them valid.
+    def _split_groups_linenos(self, groups):
+        final_suggestions = set()
+        for min_lineno, max_lineno in groups:
+            key = frozenset((min_lineno, max_lineno))
+            if key not in self._SUGGESTION_CACHE:
+                suggestions = set([(min_lineno, max_lineno)])
+
+                # TODO: Make "2" a parameter in config file.
+                # Run suggestions multiple times.
+                for iteration in range(2):
+                    suggestions = self.split_groups_linenos_indentation(suggestions)
+                    suggestions = self._adjust_multiline_groups(suggestions)
+                    suggestions = self._adjust_control_groups(suggestions)
+                suggestions = self._trim_unimportant(suggestions)
+                self._SUGGESTION_CACHE[key] = suggestions
+            final_suggestions |= self._SUGGESTION_CACHE[key]
+        return final_suggestions
 
     # Gets groups of line numbers with greater than max diff between slices.
     def _compare_slice_maps(self, slice_map, reduced_slice_map,
@@ -392,13 +446,21 @@ class Slice(object):
                     excluded_control |= cur_control
                     cur_control = set()
 
-        # Groups line numbers within the epsilon of each other.
-        linenos = self._adjust_adjacent_multiline_groups(linenos)
-        return self._group_linenos(linenos, max_diff_linenos)
+        # # Groups line numbers within the epsilon of each other.
+        # linenos = self._adjust_adjacent_multiline_groups(linenos)
+        # return self._group_linenos(linenos, max_diff_linenos)
 
-    # -----------------------------------------------------
-    # ---------- GENERATES SUGGESTION TYPES ---------------
-    # -----------------------------------------------------
+        if not linenos:
+            return []
+
+        # Groups line numbers with reduced complexity and any unimportant lines.
+        linenos |= self.func.unimportant
+        suggestions = self._generate_groups(linenos, max_diff_linenos)
+        return self._split_groups_linenos(suggestions)
+
+    # -----------------------------------------------------------------
+    # ---------- HELPER METHODS TO GENERATE SUGGESTIONS ---------------
+    # -----------------------------------------------------------------
 
     # Gets the length of the range of the line numbers.
     def _range(self, min_lineno, max_lineno):
@@ -417,6 +479,10 @@ class Slice(object):
                         groups.add(frozenset(variables))
                         variables.pop(0)
         return groups
+
+    # -----------------------------------------------------
+    # ---------- GENERATES SUGGESTION TYPES ---------------
+    # -----------------------------------------------------
 
     # Gets suggestions based on removing variables.
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
