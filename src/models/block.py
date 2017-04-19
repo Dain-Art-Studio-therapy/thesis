@@ -321,8 +321,9 @@ class FunctionBlock(BlockInterface):
 
     def __init__(self, label):
         super(self.__class__, self).__init__(label)
-        self.blank_lines = None
-        self.comments = None
+        self.unimportant = set()
+        self.blank_lines = set()
+        self.comments = set()
 
     def __str__(self):
         string = '%s\n' %super(FunctionBlock, self).__str__()

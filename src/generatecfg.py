@@ -199,6 +199,7 @@ class CFGGenerator(ast.NodeVisitor):
 
     def _init_variables(self):
         self.block_list = BlockList()
+        self.func_block = None
         self.current_block = None
         self.exit_block = None
         self.current_control = None
@@ -215,21 +216,33 @@ class CFGGenerator(ast.NodeVisitor):
     # Adds information about an instruction to the current block at lineno.
     def _add_instruction_info(self, lineno, var=None, action=None, instr_type=None):
         if self.current_block:
-            if action == TypeVariable.LOAD:
-                self.current_block.add_reference(lineno, var)
-            if action == TypeVariable.STORE:
-                self.current_block.add_definition(lineno, var)
+            # Adds variables to instruction.
+            if var:
+                if action == TypeVariable.LOAD:
+                    self.current_block.add_reference(lineno, var)
+                if action == TypeVariable.STORE:
+                    self.current_block.add_definition(lineno, var)
+
+            # Adds control to instruction.
             if self.current_control:
                 self.current_block.add_instr_control(lineno, self.current_control)
+
+            # Adds instruction type to instruction.
             if instr_type:
                 self.current_block.add_instruction_type(lineno, instr_type)
+
+            # Adds multiline to instructions.
             if lineno in self.tokens.multiline:
                 self.current_block.add_multiline_instructions(
                     lineno, self.tokens.multiline[lineno])
-            if not self.last_lineno or lineno > self.last_lineno:
-                self.last_lineno = lineno
+
+            # Adds indentation level to instruction.
             indent = self.tokens.line_indent[lineno]
             self.current_block.add_instr_indent(lineno, indent)
+
+            # Stores last line number visited.
+            if not self.last_lineno or lineno > self.last_lineno:
+                self.last_lineno = lineno
 
     # Adds a successor to the block if it is not null.
     def _add_successor(self, block, successor):
@@ -281,7 +294,7 @@ class CFGGenerator(ast.NodeVisitor):
         prev_block = self.current_block
 
         # Create FunctionBlock.
-        func_block = self.current_block = FunctionBlock(node.name)
+        self.func_block = self.current_block = FunctionBlock(node.name)
         self._add_instruction_info(node.lineno, instr_type=InstructionType.FUNCTION_HEADER)
 
         # Create exit block.
@@ -294,8 +307,10 @@ class CFGGenerator(ast.NodeVisitor):
 
         # Add blank linenos and comments.
         linenos = set(range(node.lineno, self.last_lineno+1))
-        func_block.blank_lines = linenos.intersection(self.tokens.blank_lines)
-        func_block.comments = linenos.intersection(self.tokens.comments)
+        self.func_block.blank_lines = linenos.intersection(self.tokens.blank_lines)
+        self.func_block.comments = linenos.intersection(self.tokens.comments)
+        self.func_block.unimportant |= self.func_block.blank_lines
+        self.func_block.unimportant |= self.func_block.comments
         self.current_block = prev_block
 
     # # ClassDef(identifier name, expr* bases, stmt* body, expr* decorator_list)
@@ -498,10 +513,13 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_Expr')
     #     self.generic_visit(node)
 
-    # # ???
-    # def visit_Pass(self, node):
-    #     print('visit_Pass')
-    #     self.generic_visit(node)
+    # TODO: Finalize.
+    # input: Pass()
+    # output: None
+    def visit_Pass(self, node):
+        self._add_instruction_info(node.lineno, instr_type=InstructionType.PASS)
+        # self.func_block.unimportant.add(node.lineno)
+        self.generic_visit(node)
 
     # # ???
     # def visit_Break(self, node):

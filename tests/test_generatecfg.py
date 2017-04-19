@@ -1126,6 +1126,42 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockPredecessorsEqual(exit_block, ['funcA'])
         self.assertBlockSuccessorsEqual(exit_block)
 
+    def test_pass(self):
+        source = ('def funcA(x):\n'             # line 1
+                  '    if x < 5:\n'             # line 2
+                  '        pass\n'              # line 3
+                  '    else:\n'                 # line 4
+                  '        pass\n')             # line 5
+        cfg = self._generate_cfg(source)
+        func_block = cfg.get_func('funcA')
+
+        self.assertEqual(func_block.get_instruction_linenos(), set([1, 2]))
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['x'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(func_block.get_instruction(2), referenced=['x'], multiline=[2, 4])
+        self.assertBlockPredecessorsEqual(func_block)
+        self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
+
+        if_block = func_block.successors['L2']
+        self.assertInstrEqual(if_block.get_instruction(3), instruction_type=InstructionType.PASS, control=2)
+        self.assertBlockPredecessorsEqual(if_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(if_block, ['L4'])
+
+        else_block = func_block.successors['L3']
+        self.assertInstrEqual(else_block.get_instruction(4), instruction_type=InstructionType.ELSE, control=2, multiline=[2, 4])
+        self.assertInstrEqual(else_block.get_instruction(5), instruction_type=InstructionType.PASS, control=4)
+        self.assertBlockPredecessorsEqual(else_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(else_block, ['L4'])
+
+        after_block = else_block.successors['L4']
+        self.assertFalse(after_block.get_instructions())
+        self.assertBlockPredecessorsEqual(after_block, ['L2', 'L3'])
+        self.assertBlockSuccessorsEqual(after_block, ['L1'])
+
+        exit_block = after_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L4'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
 
 if __name__ == '__main__':
     unittest.main()

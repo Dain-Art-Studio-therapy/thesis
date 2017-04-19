@@ -308,11 +308,11 @@ class Slice(object):
 
     # Adjust line numbers based on adjacent multiline groups.
     # Doesn't assure the multiline groups are grouped together.
-    def _adjust_adjacent_multiline_groups(self, linenos, unimportant_linenos):
+    def _adjust_adjacent_multiline_groups(self, linenos):
         final_linenos = set()
         for cur_lineno in linenos:
             instr = self.reaching_def_info.get_instruction(cur_lineno)
-            valid_lines = [lineno in unimportant_linenos or lineno in linenos
+            valid_lines = [lineno in self.func.unimportant or lineno in linenos
                            for lineno in instr.multiline]
 
             # Add lineno if all lines within multiline group are valid.
@@ -328,7 +328,7 @@ class Slice(object):
 
     # Groups line numbers with greater than max diff between slices.
     # Adds comments/blank lines to connect groups.
-    def _group_linenos(self, linenos, max_diff_linenos, unimportant_linenos):
+    def _group_linenos(self, linenos, max_diff_linenos):
         groups = self._generate_groups(linenos, max_diff_linenos)
 
         # TODO: Make function.
@@ -338,7 +338,7 @@ class Slice(object):
                 linenos_in_gap = set(range(max(leftgroup)+1, min(rightgroup)))
 
                 # Add linenos if all linenos in gap are comments/blank lines.
-                unimportant = linenos_in_gap.intersection(unimportant_linenos)
+                unimportant = linenos_in_gap.intersection(self.func.unimportant)
                 if len(unimportant) == len(linenos_in_gap):
                     linenos |= linenos_in_gap
 
@@ -393,9 +393,8 @@ class Slice(object):
                     cur_control = set()
 
         # Groups line numbers within the epsilon of each other.
-        unimportant_linenos = self.func.blank_lines.union(self.func.comments)
-        linenos = self._adjust_adjacent_multiline_groups(linenos, unimportant_linenos)
-        return self._group_linenos(linenos, max_diff_linenos, unimportant_linenos)
+        linenos = self._adjust_adjacent_multiline_groups(linenos)
+        return self._group_linenos(linenos, max_diff_linenos)
 
     # -----------------------------------------------------
     # ---------- GENERATES SUGGESTION TYPES ---------------
@@ -504,7 +503,7 @@ class Slice(object):
     def _range(self, min_lineno, max_lineno):
         return max_lineno - min_lineno + 1
 
-    # TODO: Adjust the conditions for excluding based on number fo lines of func
+    # TODO: Adjust the conditions for excluding based on number of lines of func
     #       E.g. hw5/19/cast.py --> lines 17-62
     #   - Ideally based on some metric of complexity
     #     (but that might be too complex).
