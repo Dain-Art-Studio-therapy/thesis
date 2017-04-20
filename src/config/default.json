@@ -1,7 +1,6 @@
 {
     "generating_suggestions": {
         "min_diff_complexity_between_slices" : 3,
-        "max_dist_between_grouped_linenos" : 2,
         "max_diff_ref_and_live_var_block" : 4
     },
 

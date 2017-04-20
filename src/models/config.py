@@ -12,7 +12,6 @@ class Config(object):
     def __init__(self):
         # Numerics for generating suggestions.
         self.min_diff_complexity_between_slices = None
-        self.max_dist_between_grouped_linenos = None
         self.max_diff_ref_and_live_var_block = None
 
         # Numerics for validing suggestions.

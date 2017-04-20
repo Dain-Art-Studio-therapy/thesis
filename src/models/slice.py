@@ -322,9 +322,9 @@ class Slice(object):
 
     # TODO: REMOVE max_diff_linenos (hardcode).
     # Groups line numbers with greater than max diff between slices.
-    def _generate_groups(self, linenos, max_diff_linenos=2):
+    def _generate_groups(self, linenos):
         linenos = sorted(list(linenos))
-        groups = split(linenos, where(diff(linenos) >= max_diff_linenos)[0] + 1)
+        groups = split(linenos, where(diff(linenos) >= 2)[0] + 1)
         return set([(min(linenos), max(linenos))
                     for linenos in groups if linenos.size > 1])
 
@@ -428,7 +428,7 @@ class Slice(object):
 
     # Gets groups of line numbers with greater than max diff between slices.
     def _compare_slice_maps(self, slice_map, reduced_slice_map,
-                            min_diff_complexity, max_diff_linenos):
+                            min_diff_complexity):
         linenos = set()
         cur_control = set()
         excluded_control = set()
@@ -455,7 +455,7 @@ class Slice(object):
 
         # Groups line numbers with reduced complexity and any unimportant lines.
         linenos |= self.func.unimportant
-        suggestions = self._generate_groups(linenos, max_diff_linenos)
+        suggestions = self._generate_groups(linenos)
         return self._split_groups_linenos(suggestions)
 
     # -----------------------------------------------------------------
@@ -497,8 +497,7 @@ class Slice(object):
         for var in variables:
             reduced_slice_map = self.get_slice_map(exclude_vars=var)
             linenos = self._compare_slice_maps(slice_map, reduced_slice_map,
-                                               self.config.min_diff_complexity_between_slices,
-                                               self.config.max_dist_between_grouped_linenos)
+                                               self.config.min_diff_complexity_between_slices)
 
             # Adds groups of linenos.
             for min_lineno, max_lineno in linenos:
@@ -507,29 +506,30 @@ class Slice(object):
 
         return suggestions, SuggestionType.REMOVE_VAR
 
-    # Gets suggestions based on similar references in a block.
-    def _get_suggestions_similar_ref_block(self, debug=False):
+    # TODO: If this works better, then change name.
+    # Gets suggestions based on similar references in a row.
+    def _get_suggestions_similar_ref(self, debug=False):
         suggestions = set()
+        prev_ref_set = set()
+        min_lineno = None
+        max_lineno = None
 
         for block in self.sorted_blocks:
-            prev_ref_set = set()
-            min_lineno = None
-            max_lineno = None
-
             # Finds similar references in consequtive lines within a block.
             for instr in block.get_instructions():
-                if not instr.referenced or instr.referenced != prev_ref_set:
-                    if len(instr.referenced) > 1:
-                        if (min_lineno and (self._range(min_lineno, max_lineno) >=
-                                            self.config.min_lines_in_suggestion)):
-                            suggestions.add((min_lineno, max_lineno))
+                info = self.live_var_info.get_instruction_info(instr.lineno)
+                if not info.referenced or info.referenced != prev_ref_set:
+                    if (min_lineno and (self._range(min_lineno, max_lineno) >=
+                                        self.config.min_lines_in_suggestion)):
+                        suggestions.add((min_lineno, max_lineno))
                     min_lineno = instr.lineno
                 max_lineno = instr.lineno
-                prev_ref_set = instr.referenced
+                prev_ref_set = info.referenced
 
         suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.SIMILAR_REF
 
+    # TODO: Try on a instruction level.
     # Gets suggestions based on differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
         suggestions = set()
@@ -585,7 +585,7 @@ class Slice(object):
         linenos_instrs = linenos - self.func.unimportant
         lines_func = len(self.linenos) - len(linenos_instrs)
 
-        return (len(ref_vars) <= self.config.max_variables_parameter_in_suggestion and
+        return (#len(ref_vars) <= self.config.max_variables_parameter_in_suggestion and
                 len(ref_vars) >= self.config.min_variables_parameter_in_suggestion and
                 len(ret_vars) <= self.config.max_variables_return_in_suggestion and
                 len(linenos_instrs) >= self.config.min_lines_in_suggestion and
@@ -675,7 +675,7 @@ class Slice(object):
                               func=self._get_suggestions_remove_variables,
                               slice_map=slice_map, debug=debug)
         self._add_suggestions(suggestion_map,
-                              func=self._get_suggestions_similar_ref_block,
+                              func=self._get_suggestions_similar_ref,
                               debug=debug)
         self._add_suggestions(suggestion_map,
                               func=self._get_suggestions_diff_reference_livevar_block,

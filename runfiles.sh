@@ -51,21 +51,21 @@
 # python -m src.decomposer codesample/student_solution/hw6/14/blur.py
 
 # Generates many good looking suggestions. Difference between fast & slow.
-# # # time python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
-# # # time python -m src.decomposer codesample/student_solution/hw5/36/cast.py --slow
-# # time python -m src.decomposer codesample/student_solution/hw5/33/cast.py --slow # Generates a lot of good suggesitons
-# time python -m src.decomposer codesample/student_solution/hw5/18/cast.py --slow
-time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow # Not getting too many suggestions - b/ fewer lines of code.
-# # # time python -m src.decomposer codesample/student_solution/hw4/14/cast.py --slow
-# # # time python -m src.decomposer codesample/student_solution/hw5/27/cast.py --slow # Really interesting result.
-time python -m src.decomposer codesample/student_solution/hw5/50/cast.py
-time python -m src.decomposer codesample/student_solution/hw5/50/cast.py --slow # Keep an eye on suggestion 59-71, 82-96.
-# # time python -m src.decomposer codesample/student_solution/hw5/47/cast.py --slow # Good results.
+# # # # time python -m src.decomposer codesample/student_solution/hw5/41/cast.py --slow
+# # # # time python -m src.decomposer codesample/student_solution/hw5/36/cast.py --slow
+# # # time python -m src.decomposer codesample/student_solution/hw5/33/cast.py --slow # Generates a lot of good suggesitons
+# # time python -m src.decomposer codesample/student_solution/hw5/18/cast.py --slow
+# time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow # Not getting too many suggestions - b/ fewer lines of code.
+# # # # time python -m src.decomposer codesample/student_solution/hw4/14/cast.py --slow
+# # # # time python -m src.decomposer codesample/student_solution/hw5/27/cast.py --slow # Really interesting result.
+# time python -m src.decomposer codesample/student_solution/hw5/50/cast.py
+# time python -m src.decomposer codesample/student_solution/hw5/50/cast.py --slow # Keep an eye on suggestion 59-71, 82-96.
+# # # time python -m src.decomposer codesample/student_solution/hw5/47/cast.py --slow # Good results.
+# time python -m src.decomposer codesample/student_solution/hw5/33/cast.py --slow
 
 # Use for linter.
 # time python -m src.decomposer codesample/student_solution/hw5/57/cast.py --slow
 
 # Future work examples.
+# time python -m src.decomposer codesample/student_solution/hw5/19/cast.py --slow # I don't find suggestions for extra long lines.
 # time python -m src.decomposer codesample/student_solution/hw5/63/cast.py --slow # Examine inividual lines of code.
-
-
