@@ -111,7 +111,7 @@ def generate_suggestions():
         progress_bar(args.noprogress, func_num=func_num + 1, num_funcs=num_funcs)
         func_slice = Slice(func_block, config, args.slow)
         suggestions.extend(func_slice.get_suggestions())
-        total_func_complexity += func_slice.get_lineno_complexity()
+        total_func_complexity += func_slice.get_avg_lineno_slice_complexity()
     remove_progress_bar(args.noprogress)
 
     # Print suggestions.

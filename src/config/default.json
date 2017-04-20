@@ -1,7 +1,7 @@
 {
     "generating_suggestions": {
         "min_diff_complexity_between_slices" : 3,
-        "max_diff_ref_and_live_var_block" : 4
+        "min_diff_ref_and_live_var_block" : 4
     },
 
     "validating_suggestions": {

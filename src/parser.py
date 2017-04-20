@@ -18,7 +18,7 @@ _DEFAULT_JSON_FILE = 'src/config/default.json'
 def generate_config_obj(info):
     config = Config()
     config.min_diff_complexity_between_slices = info['generating_suggestions']['min_diff_complexity_between_slices']
-    config.max_diff_ref_and_live_var_block = info['generating_suggestions']['max_diff_ref_and_live_var_block']
+    config.min_diff_ref_and_live_var_block = info['generating_suggestions']['min_diff_ref_and_live_var_block']
 
     config.min_lines_in_suggestion = info['validating_suggestions']['min_lines_in_suggestion']
     config.min_variables_parameter_in_suggestion = info['validating_suggestions']['min_variables_parameter_in_suggestion']

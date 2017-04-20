@@ -112,7 +112,6 @@ class Slice(object):
                     variables.add(var)
         return variables
 
-    # TODO: TEST
     # Generates a map of lineno of control to the linenos it controls.
     def _get_map_control_linenos_in_func(self):
         controls = {}
@@ -316,20 +315,29 @@ class Slice(object):
                 slice_map[lineno] = self.get_slice(instrs)
         return slice_map
 
-    # ----------------------------------------------
-    # ---------- COMPARES SLICE MAPS ---------------
-    # ----------------------------------------------
+    # -------------------------------------------
+    # ---------- GENERATES GROUPS ---------------
+    # -------------------------------------------
 
-    # TODO: REMOVE max_diff_linenos (hardcode).
     # Groups line numbers with greater than max diff between slices.
-    def _generate_groups(self, linenos):
+    def _group_suggestions(self, linenos):
         linenos = sorted(list(linenos))
         groups = split(linenos, where(diff(linenos) >= 2)[0] + 1)
         return set([(min(linenos), max(linenos))
                     for linenos in groups if linenos.size > 1])
 
+    # Adds multiline statements where there are no instructions.
+    def _add_multiline_statements(self, linenos):
+        final_linenos = copy.copy(linenos)
+        for lineno in linenos:
+            instr = self.reaching_def_info.get_instruction(lineno)
+            for multiline in instr.multiline:
+                if multiline not in self.linenos:
+                    final_linenos.add(multiline)
+        return final_linenos
+
     # Splits the groups of line numbers if indentation goes out.
-    def split_groups_linenos_indentation(self, groups):
+    def _split_groups_linenos_indentation(self, groups):
         suggestions = set()
         for min_lineno, max_lineno in groups:
             index = 0
@@ -372,7 +380,7 @@ class Slice(object):
                         final_linenos |= instr.multiline
                 else:
                     final_linenos.add(cur_lineno)
-            suggestions |= self._generate_groups(final_linenos)
+            suggestions |= self._group_suggestions(final_linenos)
         return suggestions
 
     # Removes control flow where body is not included.
@@ -390,7 +398,7 @@ class Slice(object):
                         final_linenos.add(lineno)
                 else:
                     final_linenos.add(lineno)
-            suggestions |= self._generate_groups(final_linenos)
+            suggestions |= self._group_suggestions(final_linenos)
 
         return suggestions
 
@@ -398,10 +406,14 @@ class Slice(object):
     def _trim_unimportant(self, groups):
         suggestions = set()
         for min_lineno, max_lineno in groups:
-            final_lineno = max_lineno
-            while final_lineno in self.func.unimportant:
-                final_lineno -= 1
-            suggestions.add((min_lineno, final_lineno))
+            final_max_lineno = max_lineno
+            final_min_lineno = min_lineno
+            while final_max_lineno in self.func.unimportant:
+                final_max_lineno -= 1
+            while final_min_lineno in self.func.unimportant:
+                final_min_lineno += 1
+            if final_min_lineno < final_max_lineno:
+                suggestions.add((final_min_lineno, final_max_lineno))
         return suggestions
 
     # Splits the groups of line numbers to make them valid.
@@ -412,13 +424,11 @@ class Slice(object):
             if key not in self._SUGGESTION_CACHE:
                 suggestions = set([(min_lineno, max_lineno)])
                 prev_suggestion = None
-                index = 0
 
                 # Run suggestions multiple times.
                 while prev_suggestion != suggestions:
-                    index += 1
                     prev_suggestion = suggestions
-                    suggestions = self.split_groups_linenos_indentation(suggestions)
+                    suggestions = self._split_groups_linenos_indentation(suggestions)
                     suggestions = self._adjust_multiline_groups(suggestions)
                     suggestions = self._adjust_control_groups(suggestions)
                 suggestions = self._trim_unimportant(suggestions)
@@ -426,36 +436,13 @@ class Slice(object):
             final_suggestions |= self._SUGGESTION_CACHE[key]
         return final_suggestions
 
-    # Gets groups of line numbers with greater than max diff between slices.
-    def _compare_slice_maps(self, slice_map, reduced_slice_map,
-                            min_diff_complexity):
-        linenos = set()
-        cur_control = set()
-        excluded_control = set()
-
-        # TODO: Try and remove control from here and see what happens.
-        # Get line numbers with reduced complexity.
-        for lineno in reversed(self.linenos):
-            if lineno in slice_map and lineno not in excluded_control:
-                slice_complexity = slice_map[lineno]['complexity']
-                reduced_slice_complexity = reduced_slice_map[lineno]['complexity']
-                instr = self.reaching_def_info.get_instruction(lineno)
-
-                # If enough decrease in complexity, add line and grouped lines.
-                if (slice_complexity - reduced_slice_complexity) >= min_diff_complexity:
-                    linenos.add(lineno)
-                    cur_control.add(instr.control)
-                else:
-                    excluded_control |= cur_control
-                    cur_control = set()
-
-        # Exits if no groups of line numbers found.
+    # Generates groups from line numbers.
+    def _group_suggestions_with_unimportant(self, linenos):
         if not linenos:
             return []
-
-        # Groups line numbers with reduced complexity and any unimportant lines.
+        linenos = self._add_multiline_statements(linenos)
         linenos |= self.func.unimportant
-        suggestions = self._generate_groups(linenos)
+        suggestions = self._group_suggestions(linenos)
         return self._split_groups_linenos(suggestions)
 
     # -----------------------------------------------------------------
@@ -484,6 +471,26 @@ class Slice(object):
     # ---------- GENERATES SUGGESTION TYPES ---------------
     # -----------------------------------------------------
 
+    # Gets groups of line numbers with greater than max diff between slices.
+    def _compare_slice_maps(self, slice_map, reduced_slice_map,
+                            min_diff_complexity):
+        linenos = set()
+        cur_control = set()
+        excluded_control = set()
+
+        # Get line numbers with reduced complexity.
+        for lineno in self.linenos:
+            if lineno in slice_map and lineno not in excluded_control:
+                slice_complexity = slice_map[lineno]['complexity']
+                reduced_slice_complexity = reduced_slice_map[lineno]['complexity']
+                diff_complexity = slice_complexity - reduced_slice_complexity
+
+                # If enough decrease in complexity, add line and grouped lines.
+                if diff_complexity >= min_diff_complexity:
+                    linenos.add(lineno)
+
+        return self._group_suggestions_with_unimportant(linenos)
+
     # Gets suggestions based on removing variables.
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
         suggestions = set()
@@ -506,9 +513,8 @@ class Slice(object):
 
         return suggestions, SuggestionType.REMOVE_VAR
 
-    # TODO: If this works better, then change name.
-    # Gets suggestions based on similar references in a row.
-    def _get_suggestions_similar_ref(self, debug=False):
+    # Gets suggestions based on similar references in consequtive instructions.
+    def _get_suggestions_similar_reference_instrs(self, debug=False):
         suggestions = set()
         prev_ref_set = set()
         min_lineno = None
@@ -529,44 +535,21 @@ class Slice(object):
         suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.SIMILAR_REF
 
-    # TODO: Try on a instruction level.
+    # TODO: Try looking at diff ref and livevar at instruction level.
+    # TODO: Try looking at defined on all if/else branches and pull out.
     # Gets suggestions based on differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
-        suggestions = set()
         linenos = set()
-        multiline = set()
-        cur_control = set()
-        exclude_control = set()
 
-        # TODO: Check multiline after (possibly use _adjust_multiline_groups)
-        for block in reversed(self.sorted_blocks):
+        # Get instructions from blocks.
+        for block in self.sorted_blocks:
             info = self.live_var_info.get_block_info(block)
-            instrs = set()
+            # Add instructions of less than equal to min difference required.
+            if ((len(info.in_node) - len(info.referenced)) >=
+                 self.config.min_diff_ref_and_live_var_block):
+                linenos |= block.get_instruction_linenos()
 
-            # Get properities of the block.
-            for instr in block.get_instructions():
-                cur_control.add(instr.control)
-                multiline |= instr.multiline
-                instrs.add(instr.lineno)
-
-            # Only continue building suggestion if any instrs depending on
-            # current block's instrs are included in linenos variable.
-            if ((len(info.in_node) - len(info.referenced)) > self.config.max_diff_ref_and_live_var_block
-                and not instrs.intersection(exclude_control)):
-                linenos |= instrs
-            else:
-                intersection = multiline.intersection(linenos)
-                # Only add if all lines in the multiline group are in linenos.
-                if (len(linenos) >= self.config.min_lines_in_suggestion and
-                    (len(intersection) == len(multiline) or not intersection)):
-                    suggestions.add((min(linenos), max(linenos)))
-                exclude_control |= cur_control
-
-                linenos = set()
-                multiline = set()
-                cur_control = set()
-
-        suggestions = self._split_groups_linenos(suggestions)
+        suggestions = self._group_suggestions_with_unimportant(linenos)
         return suggestions, SuggestionType.DIFF_REF_LIVAR
 
     # ------------------------------------------------
@@ -575,8 +558,7 @@ class Slice(object):
 
     # TODO: Adjust the conditions for excluding based on number of lines of func
     #       E.g. hw5/19/cast.py --> lines 17-62
-    #   - Ideally based on some metric of complexity
-    #     (but that might be too complex).
+    #   - Ideally based on some metric of complexity (but might be too complex).
     # Determines if the suggestion is valid.
     def _is_valid_suggestion(self, ref_vars, ret_vars, min_lineno, max_lineno):
         ref_vars = set(ref_vars)
@@ -585,8 +567,7 @@ class Slice(object):
         linenos_instrs = linenos - self.func.unimportant
         lines_func = len(self.linenos) - len(linenos_instrs)
 
-        return (#len(ref_vars) <= self.config.max_variables_parameter_in_suggestion and
-                len(ref_vars) >= self.config.min_variables_parameter_in_suggestion and
+        return (len(ref_vars) >= self.config.min_variables_parameter_in_suggestion and
                 len(ret_vars) <= self.config.max_variables_return_in_suggestion and
                 len(linenos_instrs) >= self.config.min_lines_in_suggestion and
                 lines_func >= self.config.min_lines_func_not_in_suggestion and
@@ -606,6 +587,7 @@ class Slice(object):
                     defined.add(var)
         return sorted(list(variables))
 
+    # TODO: Use the slice/cfg to fix suggesitons on return values for loops.
     # Gets the return values in the range of the line numbers.
     def _get_return_variables(self, min_lineno, max_lineno):
         variables = set()   # Contains variables to be returned.
@@ -675,7 +657,7 @@ class Slice(object):
                               func=self._get_suggestions_remove_variables,
                               slice_map=slice_map, debug=debug)
         self._add_suggestions(suggestion_map,
-                              func=self._get_suggestions_similar_ref,
+                              func=self._get_suggestions_similar_reference_instrs,
                               debug=debug)
         self._add_suggestions(suggestion_map,
                               func=self._get_suggestions_diff_reference_livevar_block,
@@ -685,35 +667,18 @@ class Slice(object):
         final_suggestions = self._generate_suggestions(suggestion_map)
         return sorted(final_suggestions)
 
-    # TODO: REMOVE.
-    def print_live_var_data(self):
-        self.func = self.condense_cfg(self.func)
-        analysismethod = LiveVariableAnalysis()
-        self.live_var_info = analysismethod.analyze(self.func)
-
-        print("")
-        print("--------------------------")
-        print("------{}-----".format(self.func.label))
-        print("--------------------------")
-        print(self.func)
-        for func, info in self.live_var_info.blocks():
-            print(func.label)
-            print("\tREF {}".format(sorted(list(info.referenced))))
-            print("\tDEF {}".format(sorted(list(info.defined))))
-            print("\tIN  {}".format(sorted(list(info.in_node))))
-            print("\tOUT {}".format(sorted(list(info.out_node))))
-            print("")
-        print("")
-        print("")
-
-    # TODO: REMOVE (or refactor).
-    # Gets the complexity for each line multiplied by line number.
-    def get_lineno_complexity(self, debug=True):
+    # Gets the complexity of the slice at each line for each line
+    # multiplied by line number.
+    def get_avg_lineno_slice_complexity(self):
         slice_map = self.get_slice_map()
-        lineno_complexity = 0
-        for idx, lineno in enumerate(sorted(slice_map.keys())):
+        total_complexity = 0
+
+        # Gets complexity of the slice at each line.
+        for func_lineno, lineno in enumerate(sorted(slice_map.keys())):
             reduced_slice_complexity = slice_map[lineno]['complexity']
-            lineno_complexity += (reduced_slice_complexity * idx)
-        length = len(slice_map.keys()) + 1
-        lineno_complexity = float(lineno_complexity) / length
-        return lineno_complexity
+            total_complexity += (reduced_slice_complexity * func_lineno)
+
+        # Gets average complexity.
+        func_length = len(slice_map.keys()) + 1
+        avg_complexity = float(total_complexity) / func_length
+        return avg_complexity
