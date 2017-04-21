@@ -18,10 +18,11 @@ from src.models.instruction import InstructionType
 
 
 class SuggestionType(Enum):
-    __order__ = 'REMOVE_VAR, SIMILAR_REF, DIFF_REF_LIVAR'
+    __order__ = 'REMOVE_VAR, SIMILAR_REF, DIFF_REF_LIVAR_BLOCK, DIFF_REF_LIVAR_INSTR'
     REMOVE_VAR = 1
     SIMILAR_REF = 2
-    DIFF_REF_LIVAR = 3
+    DIFF_REF_LIVAR_BLOCK = 3
+    DIFF_REF_LIVAR_INSTR = 4
 
 
 
@@ -513,6 +514,8 @@ class Slice(object):
 
         return suggestions, SuggestionType.REMOVE_VAR
 
+    # TOOD: Make one that handles multiline instructions differently.
+    #       Handles them as a unit/entity.
     # Gets suggestions based on similar references in consequtive instructions.
     def _get_suggestions_similar_reference_instrs(self, debug=False):
         suggestions = set()
@@ -520,8 +523,8 @@ class Slice(object):
         min_lineno = None
         max_lineno = None
 
+        # Finds similar references in consequtive lines within a block.
         for block in self.sorted_blocks:
-            # Finds similar references in consequtive lines within a block.
             for instr in block.get_instructions():
                 info = self.live_var_info.get_instruction_info(instr.lineno)
                 if not info.referenced or info.referenced != prev_ref_set:
@@ -537,7 +540,7 @@ class Slice(object):
 
     # TODO: Try looking at diff ref and livevar at instruction level.
     # TODO: Try looking at defined on all if/else branches and pull out.
-    # Gets suggestions based on differences in live var and referenced in a block.
+    # Gets suggestions from differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
         linenos = set()
 
@@ -546,11 +549,37 @@ class Slice(object):
             info = self.live_var_info.get_block_info(block)
             # Add instructions of less than equal to min difference required.
             if ((len(info.in_node) - len(info.referenced)) >=
-                 self.config.min_diff_ref_and_live_var_block):
+                 self.config.min_diff_ref_and_live_var):
                 linenos |= block.get_instruction_linenos()
 
         suggestions = self._group_suggestions_with_unimportant(linenos)
-        return suggestions, SuggestionType.DIFF_REF_LIVAR
+        return suggestions, SuggestionType.DIFF_REF_LIVAR_BLOCK
+
+    # Gets suggestions from differences in live var and referenced in an instr.
+    def _get_suggestions_diff_reference_livevar_instr(self, debug=False):
+        linenos = set()
+
+        # Get instructions from blocks.
+        for block in self.sorted_blocks:
+            for instr in block.get_instructions():
+                info = self.live_var_info.get_instruction_info(instr.lineno)
+                # Add instructions of less than equal to min difference required.
+                if ((len(info.in_node) - len(info.referenced)) >=
+                     self.config.min_diff_ref_and_live_var):
+                    linenos.add(instr.lineno)
+
+        suggestions = self._group_suggestions_with_unimportant(linenos)
+
+        # TODO: Make this condition only if no control flow in suggestion.
+        # Only add suggestion if there are enough actual instructions.
+        final_suggestions = set()
+        for min_lineno, max_lineno in suggestions:
+            linenos = set(range(self._range(min_lineno, max_lineno)))
+            num_linenos = len(linenos - self.func.unimportant)
+            if num_linenos > self.config.min_linenos_diff_reference_livevar_instr:
+                final_suggestions.add((min_lineno, max_lineno))
+
+        return final_suggestions, SuggestionType.DIFF_REF_LIVAR_INSTR
 
     # ------------------------------------------------
     # ---------- GENERATES SUGGESTIONS ---------------
@@ -661,6 +690,9 @@ class Slice(object):
                               debug=debug)
         self._add_suggestions(suggestion_map,
                               func=self._get_suggestions_diff_reference_livevar_block,
+                              debug=debug)
+        self._add_suggestions(suggestion_map,
+                              func=self._get_suggestions_diff_reference_livevar_instr,
                               debug=debug)
 
         # Generate list of final suggestions.
