@@ -517,12 +517,10 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_Expr')
     #     self.generic_visit(node)
 
-    # TODO: Finalize.
     # input: Pass()
     # output: None
     def visit_Pass(self, node):
         self._add_instruction_info(node.lineno, instr_type=InstructionType.PASS)
-        # self.func_block.unimportant.add(node.lineno)
         self.generic_visit(node)
 
     # # ???

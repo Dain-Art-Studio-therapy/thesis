@@ -154,11 +154,15 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         slicemethod = self._get_slice_class(source)
         self.assertEqual(slicemethod.linenos, [1, 2, 5, 6, 7, 8, 9, 10, 11])
 
-
     def test_get_variables_in_func(self):
         source = self._get_source()
         slicemethod = self._get_slice_class(source)
         self.assertEqual(slicemethod.variables, set(['x', 'y', 'z', 'temp']))
+
+    def test_get_map_control_linenos_in_func(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        self.assertEqual(slicemethod.controls, {7: set([9, 10])})
 
     def test_get_instructions_in_slice(self):
         source = self._get_source()
@@ -171,7 +175,7 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         instrs = self._get_instrs_slice(source, 9)
         self.assertEqual(instrs, set([1, 2, 3, 4, 5, 6, 7, 8, 9]))
 
-    def test_get_instructions_in_slice_include_control(self):
+    def test_get_instructions_in_slice__include_control(self):
         source = self._get_source()
         instrs = self._get_instrs_slice(source, 11, include_control=False)
         self.assertEqual(instrs, set([2, 3, 4, 11]))
@@ -182,7 +186,7 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         instrs = self._get_instrs_slice(source, 9, include_control=False)
         self.assertEqual(instrs, set([9]))
 
-    def test_get_instructions_in_slice_exclude_vars(self):
+    def test_get_instructions_in_slice__exclude_vars(self):
         source = self._get_source()
 
         # Line 11.
@@ -221,7 +225,7 @@ class TestSliceCondenseFuncs(TestSlice):
                 block.add_instruction(instruction)
         return block
 
-    def test_condense_cfg_fold_redundant_branch_identical(self):
+    def test_condense_cfg_fold_redundant_branch__identical(self):
         start_block = FunctionBlock('funcA')
         exit_block = self._get_block()
 
@@ -254,7 +258,7 @@ class TestSliceCondenseFuncs(TestSlice):
         self.assertFalse(successor_block_3.predecessors)
         self.assertFalse(successor_block_3.successors)
 
-    def test_condense_cfg_fold_redundant_branch_non_identical(self):
+    def test_condense_cfg_fold_redundant_branch__non_identical(self):
         instructions = [Instruction(lineno=1)]
         start_block = FunctionBlock('funcA')
         exit_block = self._get_block()
@@ -279,30 +283,60 @@ class TestSliceCondenseFuncs(TestSlice):
         self.assertFalse(exit_block.successors)
 
     def test_condense_cfg_remove_empty_block(self):
+        # On line 218.
         self.skipTest('TODO: Implement (Important)')
 
     def test_condense_cfg_combine_blocks(self):
+        # On line 234.
         self.skipTest('TODO: Implement (Important)')
 
     def test_condense_cfg_hoist_branch(self):
+        # On line 250.
         self.skipTest('TODO: Implement (Important)')
 
 
 # Tests Slice generating slice and slice map related helper functions.
 class TestSliceGenerateSliceFuncs(TestSlice):
 
-    def test_get_slice(self):
-        self.skipTest('TODO: Implement')
-        # Check if self._SLICE_CACHE is set.
+    def _get_source(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    x = ("testing\\n"\n'         # line 2
+                  '     "testing2\\n"\n'            # line 3
+                  '            "testing3")\n'       # line 4
+                  '    z = (y\n'                    # line 5
+                  '         + y)\n'                 # line 6
+                  '    if (z\n'                     # line 7
+                  '     < 7 or len(x) < 2):\n'      # line 8
+                  '        temp = 5\n'              # line 9
+                  '        return z\n'              # line 10
+                  '    return x\n')                 # line 11
+        return source
 
-    def test_get_slice_map(self):
-        self.skipTest('TODO: Implement')
-        # Include no kwargs
+    def test_get_slice__check_cache(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        instrs = slicemethod._get_instructions_in_slice(10)
+        slice_cfg = slicemethod.get_slice(instrs)
 
-    def test_get_slice_map_kwargs(self):
-        self.skipTest('TODO: Implement (Important)')
-        # Test to make sure correct number of keys.
-        # Include "include_control=False"
+        instrs = frozenset(instrs)
+        self.assertEqual(set(slicemethod._SLICE_CACHE.keys()), set([instrs]))
+        self.assertEqual(slicemethod._SLICE_CACHE[instrs], slice_cfg)
+
+    def test_get_slice_map__check_keys(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        slice_map = slicemethod.get_slice_map()
+
+        self.assertEqual(set(slice_map.keys()), set([1, 2, 5, 6, 7, 8, 9, 10, 11]))
+        self.assertTrue(len(slicemethod._SLICE_CACHE.keys()) > 0)
+
+    def test_get_slice_map__kwargs_check_keys(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        slice_map = slicemethod.get_slice_map(include_control=False)
+
+        self.assertEqual(set(slice_map.keys()), set([1, 2, 5, 6, 7, 8, 9, 10, 11]))
+        self.assertTrue(len(slicemethod._SLICE_CACHE.keys()) > 0)
 
 
 # Tests Slice comparing slice map related helper functions.
@@ -321,9 +355,6 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
                   '     print(%s)\n' %var)              # line 10
         return source
 
-    def test_adjust_adjacent_multiline_groups(self):
-        self.skipTest('TODO: Implement (Important)')
-
     def test_generate_groups(self):
         source = self._get_source('hpixels') # Source not important for tests.
         slicemethod = self._get_slice_class(source)
@@ -336,11 +367,26 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
         groups = slicemethod._group_suggestions(linenos)
         self.assertEqual(list(groups), [(1, 4)])
 
-    def test_group_linenos(self):
+    def test_add_multiline_statements(self):
         self.skipTest('TODO: Implement (Important)')
 
-    def test_compare_slice_maps(self):
-        self.skipTest('TODO: Implement')
+    def test_split_groups_linenos_indentation(self):
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_adjust_multiline_groups(self):
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_adjust_control_groups(self):
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_trim_unimportant(self):
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_split_groups_linenos(self):
+        self.skipTest('TODO: Implement (Important)')
+
+    def test_group_suggestions_with_unimportant(self):
+        self.skipTest('TODO: Implement (Important)')
 
 
 # Tests Slice generating suggestions types related helper functions.
@@ -352,6 +398,9 @@ class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
     def test_get_groups_variables(self):
         self.skipTest('TODO: Implement (Important)')
 
+    def test_compare_slice_maps(self):
+        self.skipTest('TODO: Implement')
+
     def test_get_suggestions_remove_variables(self):
         self.skipTest('TODO: Implement')
 
@@ -359,6 +408,9 @@ class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
         self.skipTest('TODO: Implement')
 
     def test_get_suggestions_diff_reference_livevar_block(self):
+        self.skipTest('TODO: Implement')
+
+    def test_get_suggestions_diff_reference_livevar_instr(self):
         self.skipTest('TODO: Implement')
 
 
@@ -386,7 +438,7 @@ class TestSliceGenerateSuggestionFuncs(TestSlice):
     def test_get_suggestions(self):
         self.skipTest('TODO: Implement')
 
-    def test_get_lineno_complexity(self):
+    def test_get_avg_lineno_slice_complexity(self):
         self.skipTest('TODO: Implement')
 
 

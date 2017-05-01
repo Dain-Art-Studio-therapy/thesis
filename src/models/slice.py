@@ -656,8 +656,8 @@ class Slice(object):
                                               self.func.label,
                                               min_lineno, max_lineno))
             else:
-                # TODO: REMOVE.
                 pass
+                # TODO: REMOVE.
                 # print(Suggestion(ref_vars, ret_vars, types,
                 #                  self.func.label,
                 #                  min_lineno, max_lineno))
