@@ -328,15 +328,13 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
         source = self._get_source('hpixels') # Source not important for tests.
         slicemethod = self._get_slice_class(source)
 
-        linenos = [1, 2, 4, 5, 7, 8, 10]
-        groups = slicemethod._generate_groups(linenos, max_diff_linenos=2)
-        groups_list = [list(group) for group in groups]
-        self.assertEqual(groups_list, [[1, 2], [4, 5], [7, 8], [10]])
+        linenos = set([10, 8, 7, 5, 1, 2, 4])
+        groups = slicemethod._group_suggestions(linenos)
+        self.assertEqual(list(groups), [(1, 2), (4, 5), (7, 8)])
 
-        linenos = [1, 4, 7]
-        groups = slicemethod._generate_groups(linenos, max_diff_linenos=2)
-        groups_list = [list(group) for group in groups]
-        self.assertEqual(groups_list, [[1], [4], [7]])
+        linenos = set([1, 2, 3, 4, 7])
+        groups = slicemethod._group_suggestions(linenos)
+        self.assertEqual(list(groups), [(1, 4)])
 
     def test_group_linenos(self):
         self.skipTest('TODO: Implement (Important)')

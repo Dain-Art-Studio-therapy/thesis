@@ -18,8 +18,8 @@ class Test_Parser(unittest.TestCase):
         info = {
                     "generating_suggestions": {
                         "min_diff_complexity_between_slices" : 3,
-                        "max_dist_between_grouped_linenos" : 2,
-                        "max_diff_ref_and_live_var_block" : 4
+                        "min_diff_ref_and_live_var" : 4,
+                        "min_linenos_diff_reference_livevar_instr" : 4
                     },
                     "validating_suggestions": {
                         "min_lines_in_suggestion" : 3,
@@ -32,8 +32,8 @@ class Test_Parser(unittest.TestCase):
         config = generate_config_obj(info)
 
         self.assertEqual(config.min_diff_complexity_between_slices, 3)
-        self.assertEqual(config.max_dist_between_grouped_linenos, 2)
-        self.assertEqual(config.max_diff_ref_and_live_var_block, 4)
+        self.assertEqual(config.min_diff_ref_and_live_var, 4)
+        self.assertEqual(config.min_linenos_diff_reference_livevar_instr, 4)
         self.assertEqual(config.min_lines_in_suggestion, 3)
         self.assertEqual(config.min_variables_parameter_in_suggestion, 1)
         self.assertEqual(config.max_variables_parameter_in_suggestion, 6)
@@ -48,8 +48,8 @@ class Test_Parser(unittest.TestCase):
         config = parse_json(filename='src/config/default.json')
 
         self.assertEqual(config.min_diff_complexity_between_slices, 3)
-        self.assertEqual(config.max_dist_between_grouped_linenos, 2)
-        self.assertEqual(config.max_diff_ref_and_live_var_block, 4)
+        self.assertEqual(config.min_diff_ref_and_live_var, 4)
+        self.assertEqual(config.min_linenos_diff_reference_livevar_instr, 4)
         self.assertEqual(config.min_lines_in_suggestion, 3)
         self.assertEqual(config.min_variables_parameter_in_suggestion, 1)
         self.assertEqual(config.max_variables_parameter_in_suggestion, 6)
