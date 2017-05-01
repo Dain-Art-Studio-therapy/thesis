@@ -53,8 +53,8 @@ class TestSuggestion(unittest.TestCase):
         self.suggestions.sort()
 
         self.assertEqual(self.suggestions[0], self.suggestion1)
-        self.assertEqual(self.suggestions[1], self.suggestion3)
-        self.assertEqual(self.suggestions[2], self.suggestion35)
+        self.assertEqual(self.suggestions[1], self.suggestion35)
+        self.assertEqual(self.suggestions[2], self.suggestion3)
         self.assertEqual(self.suggestions[3], self.suggestion4cpy)
         self.assertEqual(self.suggestions[4], self.suggestion4)
 
@@ -63,8 +63,8 @@ class TestSuggestion(unittest.TestCase):
         self.suggestions = sorted(self.suggestions)
 
         self.assertEqual(self.suggestions[0], self.suggestion1)
-        self.assertEqual(self.suggestions[1], self.suggestion3)
-        self.assertEqual(self.suggestions[2], self.suggestion35)
+        self.assertEqual(self.suggestions[1], self.suggestion35)
+        self.assertEqual(self.suggestions[2], self.suggestion3)
         self.assertEqual(self.suggestions[3], self.suggestion4cpy)
         self.assertEqual(self.suggestions[4], self.suggestion4)
 
@@ -417,13 +417,38 @@ class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
 # Test Slice generating suggestion related helper functions.
 class TestSliceGenerateSuggestionFuncs(TestSlice):
 
+    def _get_source(self):
+        source = ('def funcA(a):\n'                     # line 1
+                  '     idx = 0\n'                      # line 2
+                  '     if a < 5:\n'                    # line 3
+                  '         a = 5\n'                    # line 4
+                  '     while check_cond:\n'            # line 5
+                  '         if a < 0:\n'                # line 6
+                  '             check_cond = True\n'    # line 7
+                  '         idx += 1\n'                 # line 8
+                  '         a -= 1\n'                   # line 9
+                  '     print(idx)\n')                  # line 10
+        return source
+
     def test_is_valid_suggestion(self):
         self.skipTest('TODO: Implement (Important)')
 
     def test_get_referenced_variables(self):
         self.skipTest('TODO: Implement (Important)')
 
-    def test_get_return_variables(self):
+    def test_get_return_variables__simple(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        # Check conditional.
+        defined = slicemethod._get_return_variables(3, 4)
+        self.assertEqual(set(defined), set(['a']))
+
+        # Check conditional with straight line.
+        defined = slicemethod._get_return_variables(2, 4)
+        self.assertEqual(set(defined), set(['idx', 'a']))
+
+    def test_get_return_variables__loop(self):
         self.skipTest('TODO: Implement (Important)')
 
     def test_generate_suggestions(self):

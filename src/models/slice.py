@@ -17,6 +17,7 @@ from src.models.structures import Queue
 from src.models.instruction import InstructionType
 
 
+
 class SuggestionType(Enum):
     __order__ = 'REMOVE_VAR, SIMILAR_REF, DIFF_REF_LIVAR_BLOCK, DIFF_REF_LIVAR_INSTR'
     REMOVE_VAR = 1
@@ -42,7 +43,7 @@ class Suggestion(object):
 
     def __lt__(self, other):
         if self.start_lineno == other.start_lineno:
-            return self.end_lineno < other.end_lineno
+            return self.end_lineno > other.end_lineno
         return self.start_lineno < other.start_lineno
 
     def __str__(self):

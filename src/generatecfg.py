@@ -334,10 +334,14 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_Assign')
     #     self.generic_visit(node)
 
-    # # AugAssign(expr target, operator op, expr value)
-    # def visit_AugAssign(self, node):
-    #     print('visit_AugAssign')
-    #     self.generic_visit(node)
+    # input: AugAssign(expr target, expr value, operator op)
+    # output: None
+    def visit_AugAssign(self, node):
+        var = self._visit_item(node.target)
+        self._add_instruction_info(node.lineno, var=var, action=TypeVariable.LOAD)
+
+        self._visit_item(node.value)
+        self._visit_item(node.op)
 
     # input: Print(expr? dest, expr* values, bool nl)
     # output: None

@@ -629,7 +629,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
         body_block = guard_block.successors['L3']
-        self.assertInstrEqual(body_block.get_instruction(4), defined=['i'], control=3)
+        self.assertInstrEqual(body_block.get_instruction(4), referenced=['i'], defined=['i'], control=3)
         self.assertBlockPredecessorsEqual(body_block, ['L2'])
         self.assertBlockSuccessorsEqual(body_block, ['L2'])
 
@@ -892,7 +892,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
         body_block = guard_block.successors['L3']
-        self.assertInstrEqual(body_block.get_instruction(3), defined=['y'], control=2)
+        self.assertInstrEqual(body_block.get_instruction(3), referenced=['y'], defined=['y'], control=2)
         self.assertInstrEqual(body_block.get_instruction(4), referenced=['y'], instruction_type=InstructionType.RETURN, control=2)
         self.assertBlockPredecessorsEqual(body_block, ['L2'])
         self.assertBlockSuccessorsEqual(body_block, ['L1'])
@@ -926,7 +926,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
         body_block = guard_block.successors['L3']
-        self.assertInstrEqual(body_block.get_instruction(3), defined=['y'], control=2)
+        self.assertInstrEqual(body_block.get_instruction(3), referenced=['y'], defined=['y'], control=2)
         self.assertInstrEqual(body_block.get_instruction(4), referenced=['y'], instruction_type=InstructionType.RETURN, control=2)
         self.assertBlockPredecessorsEqual(body_block, ['L2'])
         self.assertBlockSuccessorsEqual(body_block, ['L1'])
@@ -960,7 +960,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
         body_block = guard_block.successors['L3']
-        self.assertInstrEqual(body_block.get_instruction(3), defined=['y'], control=2)
+        self.assertInstrEqual(body_block.get_instruction(3), referenced=['y'], defined=['y'], control=2)
         self.assertInstrEqual(body_block.get_instruction(4), referenced=['y'], control=2)
         self.assertBlockPredecessorsEqual(body_block, ['L2'])
         self.assertBlockSuccessorsEqual(body_block, ['L5', 'L6'])
