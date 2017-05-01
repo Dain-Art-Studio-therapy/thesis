@@ -538,7 +538,6 @@ class Slice(object):
         suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.SIMILAR_REF
 
-    # TODO: Try looking at defined on all if/else branches and pull out.
     # Gets suggestions from differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
         linenos = set()
@@ -569,7 +568,6 @@ class Slice(object):
 
         suggestions = self._group_suggestions_with_unimportant(linenos)
 
-        # TODO: Make this condition only if no control flow in suggestion.
         # Only add suggestion if there are enough actual instructions.
         final_suggestions = set()
         for min_lineno, max_lineno in suggestions:
@@ -584,9 +582,6 @@ class Slice(object):
     # ---------- GENERATES SUGGESTIONS ---------------
     # ------------------------------------------------
 
-    # TODO: Adjust the conditions for excluding based on number of lines of func
-    #       E.g. hw5/19/cast.py --> lines 17-62
-    #   - Ideally based on some metric of complexity (but might be too complex).
     # Determines if the suggestion is valid.
     def _is_valid_suggestion(self, ref_vars, ret_vars, min_lineno, max_lineno):
         ref_vars = set(ref_vars)
@@ -615,7 +610,6 @@ class Slice(object):
                     defined.add(var)
         return sorted(list(variables))
 
-    # TODO: Use the slice/cfg to fix suggestions on return values for loops.
     # Gets the return values in the range of the line numbers.
     def _get_return_variables(self, min_lineno, max_lineno):
         variables = set()   # Contains variables to be returned.
@@ -655,12 +649,7 @@ class Slice(object):
                 suggestions.append(Suggestion(ref_vars, ret_vars, types,
                                               self.func.label,
                                               min_lineno, max_lineno))
-            else:
-                pass
-                # TODO: REMOVE.
-                # print(Suggestion(ref_vars, ret_vars, types,
-                #                  self.func.label,
-                #                  min_lineno, max_lineno))
+
         return suggestions
 
     # Adds suggestions to suggestion map.
