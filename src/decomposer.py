@@ -67,7 +67,7 @@ def process_args():
 # Generates progress bars.
 def progress_bar(noprogress, func_num, num_funcs):
     if not noprogress:
-        percent = func_num / float(num_funcs)
+        percent = func_num / float(num_funcs + 1)
         arrow = '-' * int(round(percent * _LEN_PROGRESS_BAR)-1) + '>'
         spaces = ' ' * (_LEN_PROGRESS_BAR - len(arrow))
 

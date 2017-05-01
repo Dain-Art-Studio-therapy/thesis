@@ -538,7 +538,6 @@ class Slice(object):
         suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.SIMILAR_REF
 
-    # TODO: Try looking at diff ref and livevar at instruction level.
     # TODO: Try looking at defined on all if/else branches and pull out.
     # Gets suggestions from differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
@@ -616,7 +615,7 @@ class Slice(object):
                     defined.add(var)
         return sorted(list(variables))
 
-    # TODO: Use the slice/cfg to fix suggesitons on return values for loops.
+    # TODO: Use the slice/cfg to fix suggestions on return values for loops.
     # Gets the return values in the range of the line numbers.
     def _get_return_variables(self, min_lineno, max_lineno):
         variables = set()   # Contains variables to be returned.
