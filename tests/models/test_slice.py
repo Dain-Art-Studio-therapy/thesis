@@ -544,6 +544,10 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
         source = self._get_source_complex()
         slicemethod = self._get_slice_class(source)
 
+        # No linenos.
+        suggestions = slicemethod._group_suggestions_with_unimportant([])
+        self.assertEqual(suggestions, set())
+
         # Add unimportant.
         linenos = set([7, 9, 11, 12, 13, 14, 15])
         suggestions = slicemethod._group_suggestions_with_unimportant(linenos)
@@ -558,8 +562,25 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
 # Tests Slice generating suggestions types related helper functions.
 class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
 
+    def _get_source(self, var):
+        source = ('def funcA():\n'                      # line 1
+                  '     a = 5\n'                        # line 2
+                  '     hpixels = 5\n'                  # line 3
+                  '     wpixels = 10\n'                 # line 4
+                  '     for y in range(5):\n'           # line 5
+                  '         for x in range(2):\n'       # line 6
+                  '             hpixels += 1\n'         # line 7
+                  '             new_var = 0\n'          # line 8
+                  '         wpixels += 1\n'             # line 9
+                  '     print(%s)\n' %var)              # line 10
+        return source
+
     def test_range(self):
-        self.skipTest('TODO: Implement')
+        source = self._get_source('hpixels') # Source not important for tests.
+        slicemethod = self._get_slice_class(source)
+
+        length = slicemethod._range(min_lineno=3, max_lineno=5)
+        self.assertEqual(length, 3)
 
     def test_compare_slice_maps(self):
         self.skipTest('TODO: Implement')

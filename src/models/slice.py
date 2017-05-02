@@ -498,7 +498,7 @@ class Slice(object):
     # Generates groups from line numbers.
     def _group_suggestions_with_unimportant(self, linenos):
         if not linenos:
-            return []
+            return set([])
         linenos = self._add_multiline_statements(linenos)
         linenos |= self.func.unimportant
         suggestions = self._group_suggestions(linenos)
