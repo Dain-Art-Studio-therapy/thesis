@@ -164,12 +164,20 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         slicemethod = self._get_slice_class(source)
         self.assertEqual(slicemethod.controls, {7: set([9, 10])})
 
-    def test_get_block_map(self):
+    def test_get_block_map_in_func(self):
         source = self._get_source()
         slicemethod = self._get_slice_class(source)
-        self.assertEqual(set(slicemethod.block_map.keys()), set(['funcA', 'L2', 'L3', 'L1']))
+        self.assertEqual(set(slicemethod.block_map.keys()),
+                         set(['funcA', 'L2', 'L3', 'L1']))
 
-    def test_get_instrs_block_map(self):
+    def test_get_map_multiline_in_func(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        self.assertEqual(slicemethod.multiline, {2: set([2, 3, 4]), 3: set([2, 3, 4]), 4: set([2, 3, 4]),
+                                                 5: set([5, 6]), 6: set([5, 6]),
+                                                 7: set([7, 8]), 8: set([7, 8])})
+
+    def test_get_instrs_block_map_in_func(self):
         source = self._get_source()
         slicemethod = self._get_slice_class(source)
 
@@ -183,7 +191,7 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         self.assertEqual(slicemethod.instrs_block_map[10].label, 'L2')
         self.assertEqual(slicemethod.instrs_block_map[11].label, 'L3')
 
-    def test_get_instructions_in_slice(self):
+    def test_get_instructions_in_slice_in_func(self):
         source = self._get_source()
         instrs = self._get_instrs_slice(source, 11)
         self.assertEqual(instrs, set([2, 3, 4, 11]))
@@ -374,6 +382,26 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
                   '     print(%s)\n' %var)              # line 10
         return source
 
+    def _get_source_complex(self):
+        source = ('def funcA(a):\n'                    # line 1
+                  '    idx = 0\n'                      # line 2
+                  '    if a < 5:\n'                    # line 3
+                  '        a = 5\n'                    # line 4
+                  '    check_cond = True\n'            # line 5
+                  '    while check_cond:\n'            # line 6
+                  '        if (a <\n'                  # line 7
+                  '               0):\n'               # line 8
+                  '            check_cond = False\n'   # line 9
+                  '\n'                                 # line 10
+                  '        if (idx > 100 or\n'         # line 11
+                  '             a == 243):\n'          # line 12
+                  '            return a\n'             # line 13
+                  '        idx += 1\n'                 # line 14
+                  '        a -= 1\n'                   # line 15
+                  '    print(idx)\n'                   # line 16
+                  '    return 0\n')                    # line 17
+        return source
+
     def test_generate_groups(self):
         source = self._get_source('hpixels') # Source not important for tests.
         slicemethod = self._get_slice_class(source)
@@ -387,25 +415,110 @@ class TestSliceCompareSliceMapFuncs(TestSlice):
         self.assertEqual(list(groups), [(1, 4)])
 
     def test_add_multiline_statements(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # Change due to multiline.
+        linenos = slicemethod._add_multiline_statements(set([7, 9]))
+        self.assertEqual(linenos, set([7, 8, 9]))
+
+        # No changes.
+        linenos = slicemethod._add_multiline_statements(set([11, 12, 13, 14]))
+        self.assertEqual(linenos, set([11, 12, 13, 14]))
 
     def test_split_groups_linenos_indentation(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # Change due to indentation.
+        suggestions = slicemethod._split_groups_linenos_indentation(set([(13, 16)]))
+        self.assertEqual(suggestions, set([(13, 13), (14, 15), (16, 16)]))
+
+        # Change due to indentation.
+        suggestions = slicemethod._split_groups_linenos_indentation(set([(12, 15)]))
+        self.assertEqual(suggestions, set([(12, 13), (14, 15)]))
+
+        # No changes.
+        suggestions = slicemethod._split_groups_linenos_indentation(set([(7, 11)]))
+        self.assertEqual(suggestions, set([(7, 11)]))
 
     def test_adjust_multiline_groups(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # Change due to if/else.
+        suggestions = slicemethod._adjust_multiline_groups(set([(6, 7), (8, 9)]))
+        self.assertEqual(suggestions, set())
+
+        # Change due to if/else.
+        suggestions = slicemethod._adjust_multiline_groups(set([(12, 14)]))
+        self.assertEqual(suggestions, set([(13, 14)]))
+
+        # No changes.
+        suggestions = slicemethod._adjust_multiline_groups(set([(11, 15)]))
+        self.assertEqual(suggestions, set([(11, 15)]))
 
     def test_adjust_control_groups(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # While loop header included.
+        suggestions = slicemethod._adjust_control_groups(set([(5, 6)]))
+        self.assertEqual(suggestions, set())
+
+        # If conditional header included.
+        suggestions = slicemethod._adjust_control_groups(set([(7, 8)]))
+        self.assertEqual(suggestions, set())
+
+        # While loop header with some body included.
+        suggestions = slicemethod._adjust_control_groups(set([(5, 9)]))
+        self.assertEqual(suggestions, set([(7, 9)]))
+
+        # No changes.
+        suggestions = slicemethod._adjust_control_groups(set([(11, 15)]))
+        self.assertEqual(suggestions, set([(11, 15)]))
 
     def test_trim_unimportant(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # Space at top
+        suggestions = slicemethod._trim_unimportant(set([(10, 13)]))
+        self.assertEqual(suggestions, set([(11, 13)]))
+
+        # Space at bottom
+        suggestions = slicemethod._trim_unimportant(set([(7, 10)]))
+        self.assertEqual(suggestions, set([(7, 9)]))
+
+        # No changes.
+        suggestions = slicemethod._trim_unimportant(set([(7, 13)]))
+        self.assertEqual(suggestions, set([(7, 13)]))
 
     def test_split_groups_linenos(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # Trim due to control and multiline.
+        suggestions = slicemethod._split_groups_linenos(set([(2, 7), (8, 10), (10, 15)]))
+        self.assertEqual(suggestions, set([(2, 5), (11, 15)]))
+
+        # Trim from control and empty line.
+        suggestions = slicemethod._split_groups_linenos(set([(9, 15)]))
+        self.assertEqual(suggestions, set([(11, 15)]))
 
     def test_group_suggestions_with_unimportant(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = self._get_source_complex()
+        slicemethod = self._get_slice_class(source)
+
+        # Add unimportant.
+        linenos = set([7, 9, 11, 12, 13, 14, 15])
+        suggestions = slicemethod._group_suggestions_with_unimportant(linenos)
+        self.assertEqual(suggestions, set([(7, 15)]))
+
+        # Add unimportant.
+        linenos = set([7, 8, 11, 12, 13, 14, 15])
+        suggestions = slicemethod._group_suggestions_with_unimportant(linenos)
+        self.assertEqual(suggestions, set([(11, 15)]))
 
 
 # Tests Slice generating suggestions types related helper functions.
@@ -436,7 +549,6 @@ class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
 # Test Slice generating suggestion related helper functions.
 class TestSliceGenerateSuggestionFuncs(TestSlice):
 
-    # TODO: Add empty lines.
     def _get_source(self):
         source = ('def funcA(a):\n'                     # line 1
                   '     idx = 0\n'                      # line 2
@@ -476,6 +588,15 @@ class TestSliceGenerateSuggestionFuncs(TestSlice):
     def assertReturnVariablesEqual(self, slicemethod, min_lineno, max_lineno, variables):
         defined = slicemethod._get_return_variables(min_lineno, max_lineno)
         self.assertEqual(set(defined), set(variables))
+
+    def assertSuggestionEqual(self, suggestion, min_lineno, max_lineno,
+                              func_name, parameters, returns, reasons):
+        self.assertEqual(suggestion.start_lineno, min_lineno)
+        self.assertEqual(suggestion.end_lineno, max_lineno)
+        self.assertEqual(suggestion.func_name, func_name)
+        self.assertEqual(suggestion.ref_vars, parameters)
+        self.assertEqual(suggestion.ret_vars, returns)
+        self.assertEqual(suggestion.types, reasons)
 
     def test_is_valid_suggestion(self):
         source = self._get_source()
@@ -600,7 +721,44 @@ class TestSliceGenerateSuggestionFuncs(TestSlice):
         self.assertReturnVariablesEqual(slicemethod, 7, 13, ['a', 'check_cond', 'idx'])
 
     def test_generate_suggestions(self):
-        self.skipTest('TODO: Implement')
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        suggestion_map = {(2, 2): [SuggestionType.REMOVE_VAR],
+                          (3, 4): [SuggestionType.REMOVE_VAR],
+                          (2, 4): [SuggestionType.REMOVE_VAR],
+                          (7, 8): [SuggestionType.REMOVE_VAR],
+                          (7, 9): [SuggestionType.REMOVE_VAR],
+                          (10, 11): [SuggestionType.REMOVE_VAR],
+                          (7, 11): [SuggestionType.REMOVE_VAR],
+                          (7, 13): [SuggestionType.SIMILAR_REF],
+                          (10, 11): [SuggestionType.REMOVE_VAR],
+                          (6, 13): [SuggestionType.DIFF_REF_LIVAR_BLOCK,
+                                    SuggestionType.DIFF_REF_LIVAR_INSTR]}
+
+        suggestions = slicemethod._generate_suggestions(suggestion_map)
+        self.assertEqual(len(suggestions), 3)
+
+        # Suggestion 1.
+        suggestion = suggestions[0]
+        self.assertSuggestionEqual(suggestion, 6, 13, 'funcA',
+                                   parameters=['a', 'check_cond', 'idx'],
+                                   returns=['a', 'idx'],
+                                   reasons=[SuggestionType.DIFF_REF_LIVAR_BLOCK,
+                                            SuggestionType.DIFF_REF_LIVAR_INSTR])
+
+        # Suggestion 2.
+        suggestion = suggestions[1]
+        self.assertSuggestionEqual(suggestion, 7, 11, 'funcA',
+                                   parameters=['a', 'idx'],
+                                   returns=['a', 'check_cond'],
+                                   reasons=[SuggestionType.REMOVE_VAR])
+
+        # Suggestion 3.
+        suggestion = suggestions[2]
+        self.assertSuggestionEqual(suggestion, 7, 13, 'funcA',
+                                   parameters=['a', 'idx'],
+                                   returns=['a', 'check_cond', 'idx'],
+                                   reasons=[SuggestionType.SIMILAR_REF])
 
     def test_add_suggestion_map(self):
         self.skipTest('TODO: Implement')

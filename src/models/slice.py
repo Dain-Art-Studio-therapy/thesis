@@ -100,8 +100,9 @@ class Slice(object):
         self.linenos = self.func.get_linenos_in_func()
         self.variables = self._get_variables_in_func()
         self.controls = self._get_map_control_linenos_in_func()
-        self.block_map = self._get_block_map()
-        self.instrs_block_map = self._get_instrs_block_map()
+        self.multiline = self._get_map_multiline_in_func()
+        self.block_map = self._get_block_map_in_func()
+        self.instrs_block_map = self._get_instrs_block_map_in_func()
 
         # Global caches.
         self._SLICE_CACHE = {}
@@ -127,12 +128,23 @@ class Slice(object):
                 controls[instr.control].add(lineno)
         return controls
 
+    # Generates a map of lineno of multiline to the multiline linenos.
+    def _get_map_multiline_in_func(self):
+        multiline_map = {}
+        for lineno in self.linenos:
+            instr = self.reaching_def_info.get_instruction(lineno)
+            if instr and instr.multiline:
+                multiline = instr.multiline | set([lineno])
+                for lineno in multiline:
+                    multiline_map[lineno] = multiline
+        return multiline_map
+
     # Generates a map of block labels to block.
-    def _get_block_map(self):
+    def _get_block_map_in_func(self):
         return {block.label: block for block in self.sorted_blocks}
 
     # Generates a map of instructions to block.
-    def _get_instrs_block_map(self):
+    def _get_instrs_block_map_in_func(self):
         instrs_block_map = {}
         for block in self.sorted_blocks:
             for instr in block.get_instructions():
@@ -347,9 +359,10 @@ class Slice(object):
         final_linenos = copy.copy(linenos)
         for lineno in linenos:
             instr = self.reaching_def_info.get_instruction(lineno)
-            for multiline in instr.multiline:
-                if multiline not in self.linenos:
-                    final_linenos.add(multiline)
+            if instr:
+                for multiline in instr.multiline:
+                    if multiline not in self.linenos:
+                        final_linenos.add(multiline)
         return final_linenos
 
     # Splits the groups of line numbers if indentation goes out.
@@ -386,14 +399,12 @@ class Slice(object):
             final_linenos = set()
 
             for cur_lineno in linenos:
-                instr = self.reaching_def_info.get_instruction(cur_lineno)
-                if instr:
-                    valid_lines = [lineno in linenos for lineno in instr.multiline]
-
-                    # Add lineno if all lines within multiline group are valid.
+                # Add lineno if all lines within multiline group are valid.
+                if cur_lineno in self.multiline:
+                    multiline = self.multiline[cur_lineno]
+                    valid_lines = [lineno in linenos for lineno in multiline]
                     if all(valid_lines):
                         final_linenos.add(cur_lineno)
-                        final_linenos |= instr.multiline
                 else:
                     final_linenos.add(cur_lineno)
             suggestions |= self._group_suggestions(final_linenos)
