@@ -13,6 +13,7 @@ from src.generatecfg import CFGGenerator
 from src.models.slice import *
 from src.models.block import BlockList
 from src.models.instruction import Instruction
+from src.models.structures import Queue, QueueInt
 
 
 # Tests Queue class.
@@ -25,6 +26,18 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(self.queue._items, [])
         self.assertTrue(self.queue.empty())
         self.assertEqual(self.queue.size(), 0)
+
+    def test_init(self):
+        self.assertTrue(self.queue.empty())
+        self.queue.init([5, 10, 20])
+        self.assertEqual(self.queue.size(), 3)
+
+        self.assertEqual(self.queue.dequeue(), 5)
+        self.assertEqual(self.queue.size(), 2)
+        self.assertEqual(self.queue.dequeue(), 10)
+        self.assertEqual(self.queue.size(), 1)
+        self.assertEqual(self.queue.dequeue(), 20)
+        self.assertTrue(self.queue.empty())
 
     def test_enqueue(self):
         self.assertTrue(self.queue.empty())
@@ -48,6 +61,13 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(self.queue.size(), 1)
         self.assertEqual(self.queue.dequeue(), 20)
         self.assertTrue(self.queue.empty())
+
+
+# Tests QueueInt class.
+class TestQueueInt(unittest.TestCase):
+
+    def setUp(self):
+        self.queue = QueueInt()
 
     def test_min(self):
         self.assertTrue(self.queue.empty())

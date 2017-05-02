@@ -13,7 +13,7 @@ import itertools
 from src.models.block import FunctionBlock, Block, BlockList
 from src.models.blockinfo import FunctionBlockInformation, ReachingDefinitions
 from src.models.dataflowanalysis import *
-from src.models.structures import Queue
+from src.models.structures import Queue, QueueInt
 from src.models.instruction import InstructionType
 
 
@@ -100,6 +100,8 @@ class Slice(object):
         self.linenos = self.func.get_linenos_in_func()
         self.variables = self._get_variables_in_func()
         self.controls = self._get_map_control_linenos_in_func()
+        self.block_map = self._get_block_map()
+        self.instrs_block_map = self._get_instrs_block_map()
 
         # Global caches.
         self._SLICE_CACHE = {}
@@ -125,6 +127,18 @@ class Slice(object):
                 controls[instr.control].add(lineno)
         return controls
 
+    # Generates a map of block labels to block.
+    def _get_block_map(self):
+        return {block.label: block for block in self.sorted_blocks}
+
+    # Generates a map of instructions to block.
+    def _get_instrs_block_map(self):
+        instrs_block_map = {}
+        for block in self.sorted_blocks:
+            for instr in block.get_instructions():
+                instrs_block_map[instr.lineno] = block
+        return instrs_block_map
+
     # -------------------------------------
     # ---------- GENERATES SLICE ----------
     # -------------------------------------
@@ -132,7 +146,7 @@ class Slice(object):
     # Gets set of line numbers in a slice.
     def _get_instructions_in_slice(self, start_lineno, **kwargs):
         visited = set()
-        queue = Queue()
+        queue = QueueInt()
         queue.enqueue(start_lineno)
 
         # Parse keyword arguments.
@@ -515,8 +529,6 @@ class Slice(object):
 
         return suggestions, SuggestionType.REMOVE_VAR
 
-    # TOOD: Make one that handles multiline instructions differently.
-    #       Handles them as a unit/entity.
     # Gets suggestions based on similar references in consequtive instructions.
     def _get_suggestions_similar_reference_instrs(self, debug=False):
         suggestions = set()
@@ -538,6 +550,33 @@ class Slice(object):
 
         suggestions = self._split_groups_linenos(suggestions)
         return suggestions, SuggestionType.SIMILAR_REF
+
+    """
+    # TODO: Either remove or finish.
+    # Gets suggestions based on similar references in consequtive instructions.
+    # Treats mutliline instructions as a single instruction.
+    def _get_suggestions_similar_reference_instrs_multiline(self, debug=False):
+        suggestions = set()
+        prev_ref_set = set()
+        min_lineno = None
+        max_lineno = None
+
+        # Finds similar references in consequtive lines within a block.
+        for block in self.sorted_blocks:
+            for instr in block.get_instructions():
+                # Get referenced in multiline
+                info = self.live_var_info.get_instruction_info(instr.lineno)
+                if not info.referenced or info.referenced != prev_ref_set:
+                    if (min_lineno and (self._range(min_lineno, max_lineno) >=
+                                        self.config.min_lines_in_suggestion)):
+                        suggestions.add((min_lineno, max_lineno))
+                    min_lineno = instr.lineno
+                max_lineno = instr.lineno
+                prev_ref_set = info.referenced
+
+        suggestions = self._split_groups_linenos(suggestions)
+        return suggestions, SuggestionType.SIMILAR_REF_MULTILINE
+    """
 
     # Gets suggestions from differences in live var and referenced in a block.
     def _get_suggestions_diff_reference_livevar_block(self, debug=False):
@@ -579,6 +618,20 @@ class Slice(object):
 
         return final_suggestions, SuggestionType.DIFF_REF_LIVAR_INSTR
 
+    """
+    # TODO: Either remove or finish.
+    # Gets suggestions if all paths in a conditional define the same variables.
+    def _get_suggestions_conditional_branches(self, debug=False):
+        linenos = set()
+
+        # For all the blocks.
+        # If there are multiple successors
+        # Then see if the multiple successors have similar definitions
+
+        suggestions = self._group_suggestions_with_unimportant(linenos)
+        return final_suggestions, SuggestionType.SIMILAR_CONDITIONALS
+    """
+
     # ------------------------------------------------
     # ---------- GENERATES SUGGESTIONS ---------------
     # ------------------------------------------------
@@ -611,30 +664,67 @@ class Slice(object):
                     defined.add(var)
         return sorted(list(variables))
 
-    # Gets the return values in the range of the line numbers.
-    def _get_return_variables(self, min_lineno, max_lineno):
-        variables = set()   # Contains variables to be returned.
-        defined = set()     # Contains variables defined in range.
+    # Gets the variables defined in range of line numbers.
+    # Returns variables defined, variables returned, and successors to visit.
+    def _get_defined_variables(self, min_lineno, max_lineno):
+        variables = set()   # Variables to be returned.
+        defined = set()     # Variables defined in range.
+        successors = set()  # Successors to visit.
 
         # Gets all variables defined in range.
         for lineno in range(min_lineno, max_lineno+1):
             instr_info = self.live_var_info.get_instruction_info(lineno)
             if instr_info:
+                # Track variables defined.
                 for var in instr_info.defined:
                     defined.add(var)
+
+                # Add successors.
+                block = self.instrs_block_map[lineno]
+                block_last_lineno = block.get_last_instruction()
+                if defined:
+                    successors.add(block.label)
+                if block.label in successors and block_last_lineno == lineno:
+                    successors.remove(block.label)
+                if defined:
+                    successors |= set(block.successors.keys())
+
                 # Adds variables referenced in RETURN to 'variables'.
                 instr = self.live_var_info.get_instruction(lineno)
                 if instr.instruction_type == InstructionType.RETURN:
                     variables |= instr_info.referenced
+        return defined, variables, successors
 
-        # Gets all variables referenced from those defined in range.
-        for lineno in range(max_lineno+1, max(self.linenos)+1):
-            instr_info = self.live_var_info.get_instruction_info(lineno)
-            if instr_info:
-                variables |= defined.intersection(instr_info.referenced)
-                for var in instr_info.defined:
-                    if var in defined:
-                        defined.remove(var)
+    # Gets the return values in the range of the line numbers.
+    def _get_return_variables(self, min_lineno, max_lineno):
+        visited = set()
+        queue = Queue()
+
+        defined_tuple = self._get_defined_variables(min_lineno, max_lineno)
+        defined, variables, successors = defined_tuple
+
+        # Follow all of the block's successors.
+        queue.init(successors)
+        while not queue.empty():
+            label = queue.dequeue()
+
+            # Gets linenos in block if block has not been visited.
+            if label not in visited:
+                block = self.block_map[label]
+                for lineno in block.get_instruction_linenos():
+                    instr_info = self.live_var_info.get_instruction_info(lineno)
+
+                    # Analyze instruction if exists and is not part of the slice.
+                    if instr_info and (lineno < min_lineno or lineno > max_lineno):
+                        variables |= defined.intersection(instr_info.referenced)
+                        for var in instr_info.defined:
+                            if var in defined:
+                                defined.remove(var)
+
+                # Add successors to queue.
+                for successor in block.successors:
+                    queue.enqueue(successor)
+            visited.add(label)
         return sorted(list(variables))
 
     # Generates suggestions from a map of range of lineno to list of variables.

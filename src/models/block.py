@@ -288,6 +288,10 @@ class BlockInterface(ABC):
         sorted_instructions = iter(sorted(self._instructions.items()))
         return [instruction for lineno, instruction in sorted_instructions]
 
+    # Returns last instruction.
+    def get_last_instruction(self):
+        return max(self._instructions.keys())
+
     # Returns top successor.
     def get_first_successor(self):
         if self.successors:

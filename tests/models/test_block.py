@@ -419,6 +419,12 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(instructions[0].lineno, 1)
         self.assertEqual(instructions[1].lineno, 2)
 
+    def test_get_last_instruction(self):
+        self.assertFalse(self.block1.get_instruction_linenos())
+        self.block1.add_definition(lineno=1, variable='varB')
+        self.block1.add_definition(lineno=2, variable='varA')
+        self.assertEqual(self.block1.get_last_instruction(), 2)
+
     def test_get_first_successor(self):
         self.block1.set_successors([self.block2, self.block3])
         successor = self.block1.get_first_successor()

@@ -164,6 +164,25 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         slicemethod = self._get_slice_class(source)
         self.assertEqual(slicemethod.controls, {7: set([9, 10])})
 
+    def test_get_block_map(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+        self.assertEqual(set(slicemethod.block_map.keys()), set(['funcA', 'L2', 'L3', 'L1']))
+
+    def test_get_instrs_block_map(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        self.assertEqual(slicemethod.instrs_block_map[1].label, 'funcA')
+        self.assertEqual(slicemethod.instrs_block_map[2].label, 'funcA')
+        self.assertEqual(slicemethod.instrs_block_map[5].label, 'funcA')
+        self.assertEqual(slicemethod.instrs_block_map[6].label, 'funcA')
+        self.assertEqual(slicemethod.instrs_block_map[7].label, 'funcA')
+        self.assertEqual(slicemethod.instrs_block_map[8].label, 'funcA')
+        self.assertEqual(slicemethod.instrs_block_map[9].label, 'L2')
+        self.assertEqual(slicemethod.instrs_block_map[10].label, 'L2')
+        self.assertEqual(slicemethod.instrs_block_map[11].label, 'L3')
+
     def test_get_instructions_in_slice(self):
         source = self._get_source()
         instrs = self._get_instrs_slice(source, 11)
@@ -417,39 +436,168 @@ class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
 # Test Slice generating suggestion related helper functions.
 class TestSliceGenerateSuggestionFuncs(TestSlice):
 
+    # TODO: Add empty lines.
     def _get_source(self):
         source = ('def funcA(a):\n'                     # line 1
                   '     idx = 0\n'                      # line 2
                   '     if a < 5:\n'                    # line 3
                   '         a = 5\n'                    # line 4
-                  '     while check_cond:\n'            # line 5
-                  '         if a < 0:\n'                # line 6
-                  '             check_cond = True\n'    # line 7
-                  '         idx += 1\n'                 # line 8
-                  '         a -= 1\n'                   # line 9
-                  '     print(idx)\n')                  # line 10
+                  '     check_cond = True\n'            # line 5
+                  '     while check_cond:\n'            # line 6
+                  '         if a < 0:\n'                # line 7
+                  '             check_cond = False\n'   # line 8
+                  '\n'                                  # line 9
+                  '         if idx > 100:\n'            # line 10
+                  '             return a\n'             # line 11
+                  '         idx += 1\n'                 # line 12
+                  '         a -= 1\n'                   # line 13
+                  '     print(idx)\n'                   # line 14
+                  '     return 0\n')                    # line 15
         return source
 
+    def assertValidSuggestion(self, slicemethod, min_lineno, max_lineno, is_valid):
+        ref_vars = slicemethod._get_referenced_variables(min_lineno, max_lineno)
+        ret_vars = slicemethod._get_return_variables(min_lineno, max_lineno)
+        is_valid_actual = slicemethod._is_valid_suggestion(ref_vars, ret_vars, min_lineno, max_lineno)
+        self.assertEqual(is_valid_actual, is_valid)
+
+    def assertReferencedVariablesEqual(self, slicemethod, min_lineno, max_lineno, variables):
+        defined = slicemethod._get_referenced_variables(min_lineno, max_lineno)
+        self.assertEqual(set(defined), set(variables))
+
+    def assertDefinedVariablesEqual(self, slicemethod, min_lineno, max_lineno,
+                                    defined=None, variables=None, successors=None):
+        defined_tuple = slicemethod._get_defined_variables(min_lineno, max_lineno)
+        expected_defined, expected_variables, expected_successors = defined_tuple
+        self.assertEqual(expected_defined, set(defined) if defined else set())
+        self.assertEqual(expected_variables, set(variables) if variables else set())
+        self.assertEqual(expected_successors, set(successors) if successors else set())
+
+    def assertReturnVariablesEqual(self, slicemethod, min_lineno, max_lineno, variables):
+        defined = slicemethod._get_return_variables(min_lineno, max_lineno)
+        self.assertEqual(set(defined), set(variables))
+
     def test_is_valid_suggestion(self):
-        self.skipTest('TODO: Implement (Important)')
-
-    def test_get_referenced_variables(self):
-        self.skipTest('TODO: Implement (Important)')
-
-    def test_get_return_variables__simple(self):
         source = self._get_source()
         slicemethod = self._get_slice_class(source)
 
+        # Check start.
+        self.assertValidSuggestion(slicemethod, 2, 2, False)
+
         # Check conditional.
-        defined = slicemethod._get_return_variables(3, 4)
-        self.assertEqual(set(defined), set(['a']))
+        self.assertValidSuggestion(slicemethod, 3, 4, False)
 
         # Check conditional with straight line.
-        defined = slicemethod._get_return_variables(2, 4)
-        self.assertEqual(set(defined), set(['idx', 'a']))
+        self.assertValidSuggestion(slicemethod, 2, 4, False)
 
-    def test_get_return_variables__loop(self):
-        self.skipTest('TODO: Implement (Important)')
+        # Check condition in loop.
+        self.assertValidSuggestion(slicemethod, 7, 8, False)
+
+        # Check condition in loop with newline.
+        self.assertValidSuggestion(slicemethod, 7, 9, False)
+
+        # Check return type.
+        self.assertValidSuggestion(slicemethod, 10, 11, False)
+
+        # Check condition in loop with newline and return type.
+        self.assertValidSuggestion(slicemethod, 7, 11, True)
+
+        # Check end of loop.
+        self.assertValidSuggestion(slicemethod, 12, 13, False)
+
+        # Check full loop body.
+        self.assertValidSuggestion(slicemethod, 7, 13, True)
+
+        # Check full loop.
+        self.assertValidSuggestion(slicemethod, 6, 13, True)
+
+    def test_get_referenced_variables(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        # Check condition in loop.
+        self.assertReferencedVariablesEqual(slicemethod, 7, 8, ['a'])
+
+        # Check condition in loop with newline.
+        self.assertReferencedVariablesEqual(slicemethod, 7, 9, ['a'])
+
+        # Check return type.
+        self.assertReferencedVariablesEqual(slicemethod, 10, 11, ['a', 'idx'])
+
+        # Check condition in loop with newline and return type.
+        self.assertReferencedVariablesEqual(slicemethod, 7, 11, ['a', 'idx'])
+
+        # Check end of loop.
+        self.assertReferencedVariablesEqual(slicemethod, 12, 13, ['a', 'idx'])
+
+        # Check full loop body.
+        self.assertReferencedVariablesEqual(slicemethod, 7, 13, ['a', 'idx'])
+
+        # Check full loop.
+        self.assertReferencedVariablesEqual(slicemethod, 6, 13, ['a', 'check_cond', 'idx'])
+
+    def test_get_defined_variables(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        # Check start.
+        self.assertDefinedVariablesEqual(slicemethod, 2, 2, defined=['idx'], successors=['funcA', 'L2', 'L3'])
+
+        # Check conditional.
+        self.assertDefinedVariablesEqual(slicemethod, 3, 4, defined=['a'], successors=['L3'])
+
+        # Check conditional with straight line.
+        self.assertDefinedVariablesEqual(slicemethod, 2, 4, defined=['a', 'idx'], successors=['L3'])
+
+        # Check condition in loop.
+        self.assertDefinedVariablesEqual(slicemethod, 7, 8, defined=['check_cond'], successors=['L8'])
+
+        # Check condition in loop with newline.
+        self.assertDefinedVariablesEqual(slicemethod, 7, 9, defined=['check_cond'], successors=['L8'])
+
+        # Check return type.
+        self.assertDefinedVariablesEqual(slicemethod, 10, 11, variables=['a'])
+
+        # Check condition in loop with newline and return type.
+        self.assertDefinedVariablesEqual(slicemethod, 7, 11, defined=['check_cond'], variables=['a'], successors=['L1', 'L10'])
+
+        # Check end of loop.
+        self.assertDefinedVariablesEqual(slicemethod, 12, 13, defined=['idx', 'a'], successors=['L4'])
+
+        # Check full loop body.
+        self.assertDefinedVariablesEqual(slicemethod, 7, 13, defined=['check_cond', 'idx', 'a'], variables=['a'], successors=['L1', 'L4'])
+
+
+    def test_get_return_variables(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        # Check start.
+        self.assertReturnVariablesEqual(slicemethod, 2, 2, ['idx'])
+
+        # Check conditional.
+        self.assertReturnVariablesEqual(slicemethod, 3, 4, ['a'])
+
+        # Check conditional with straight line.
+        self.assertReturnVariablesEqual(slicemethod, 2, 4, ['a', 'idx'])
+
+        # Check condition in loop.
+        self.assertReturnVariablesEqual(slicemethod, 7, 8, ['check_cond'])
+
+        # Check condition in loop with newline.
+        self.assertReturnVariablesEqual(slicemethod, 7, 9, ['check_cond'])
+
+        # Check return type.
+        self.assertReturnVariablesEqual(slicemethod, 10, 11, ['a'])
+
+        # Check condition in loop with newline and return type.
+        self.assertReturnVariablesEqual(slicemethod, 7, 11, ['a', 'check_cond'])
+
+        # Check end of loop.
+        self.assertReturnVariablesEqual(slicemethod, 12, 13, ['a', 'idx'])
+
+        # Check full loop body.
+        self.assertReturnVariablesEqual(slicemethod, 7, 13, ['a', 'check_cond', 'idx'])
 
     def test_generate_suggestions(self):
         self.skipTest('TODO: Implement')
