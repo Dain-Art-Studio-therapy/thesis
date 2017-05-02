@@ -104,6 +104,15 @@ class Slice(object):
         self.block_map = self._get_block_map_in_func()
         self.instrs_block_map = self._get_instrs_block_map_in_func()
 
+        # Creates variable groups.
+        defined = self._get_defined_variables_in_func()
+        self.variable_groups = [[var] for var in self.variables] # 6m21.758s
+        if self.slow:
+            self.variable_groups.extend([list(var)
+                for var in self._get_groups_variables(size=3, defined=defined)])
+            self.variable_groups.extend([list(var)
+                for var in self._get_groups_variables(size=4, defined=defined)])
+
         # Global caches.
         self._SLICE_CACHE = {}
         self._SUGGESTION_CACHE = {}
@@ -150,6 +159,29 @@ class Slice(object):
             for instr in block.get_instructions():
                 instrs_block_map[instr.lineno] = block
         return instrs_block_map
+
+    def _get_defined_variables_in_func(self):
+        defined = set()
+        for lineno in self.linenos:
+            instr_info = self.live_var_info.get_instruction_info(lineno)
+            defined |= instr_info.defined
+        return defined
+
+    # Gets the variables in groups.
+    def _get_groups_variables(self, size, defined):
+        groups = set()
+        variables = []
+        for block in self.sorted_blocks:
+            for instr in block.get_instructions():
+                instr_variables = instr.defined | instr.referenced
+                for var in instr_variables:
+                    if var in defined:
+                        variables.append(var)
+                        if len(frozenset(variables)) == size:
+                            groups.add(frozenset(variables))
+                        if len(variables) == size:
+                            variables.pop(0)
+        return groups
 
     # -------------------------------------
     # ---------- GENERATES SLICE ----------
@@ -480,20 +512,6 @@ class Slice(object):
     def _range(self, min_lineno, max_lineno):
         return max_lineno - min_lineno + 1
 
-    # Gets the variables in a groups.
-    def _get_groups_variables(self, size):
-        groups = set()
-        variables = []
-        for block in self.sorted_blocks:
-            for instr in block.get_instructions():
-                instr_variables = instr.defined | instr.referenced
-                for var in instr_variables:
-                    variables.append(var)
-                    if len(variables) == size:
-                        groups.add(frozenset(variables))
-                        variables.pop(0)
-        return groups
-
     # -----------------------------------------------------
     # ---------- GENERATES SUGGESTION TYPES ---------------
     # -----------------------------------------------------
@@ -522,13 +540,8 @@ class Slice(object):
     def _get_suggestions_remove_variables(self, slice_map, debug=False):
         suggestions = set()
 
-        variables = [[var] for var in self.variables] # 6m21.758s
-        if self.slow:
-            variables.extend([list(var) for var in self._get_groups_variables(size=3)])
-            variables.extend([list(var) for var in self._get_groups_variables(size=4)])
-
         # Gets map of linenos to variables to generate suggestions.
-        for var in variables:
+        for var in self.variable_groups:
             reduced_slice_map = self.get_slice_map(exclude_vars=var)
             linenos = self._compare_slice_maps(slice_map, reduced_slice_map,
                                                self.config.min_diff_complexity_between_slices)

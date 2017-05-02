@@ -237,6 +237,40 @@ class TestSliceGenerateCFGFuncs(TestSlice):
         instrs = self._get_instrs_slice(source, 9, exclude_vars=['z'])
         self.assertEqual(instrs, set([2, 3, 4, 7, 8, 9]))
 
+    def _get_source(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    x = ("testing\\n"\n'         # line 2
+                  '     "testing2\\n"\n'            # line 3
+                  '            "testing3")\n'       # line 4
+                  '    z = (y\n'                    # line 5
+                  '         + y)\n'                 # line 6
+                  '    if (z\n'                     # line 7
+                  '     < 7 or len(x) < 2):\n'      # line 8
+                  '        temp = 5\n'              # line 9
+                  '        return z\n'              # line 10
+                  '    return x\n')                 # line 11
+        return source
+
+    def test_get_defined_variables_in_func(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        defined = slicemethod._get_defined_variables_in_func()
+        self.assertEqual(defined, set(['x', 'y', 'z', 'temp']))
+
+    def test_get_groups_variables(self):
+        source = self._get_source()
+        slicemethod = self._get_slice_class(source)
+
+        defined = slicemethod._get_defined_variables_in_func()
+        groups = slicemethod._get_groups_variables(2, defined)
+        self.assertEqual(groups, set([frozenset(['y', 'x']),
+                                      frozenset(['x', 'z']),
+                                      frozenset(['y', 'z']),
+                                      frozenset(['z', 'x']),
+                                      frozenset(['x', 'temp']),
+                                      frozenset(['temp', 'z'])]))
+
 
 # Tests Slice condense algorithm related helper functions.
 class TestSliceCondenseFuncs(TestSlice):
@@ -527,9 +561,6 @@ class TestSliceGenerateSuggestionTypeFuncs(TestSlice):
     def test_range(self):
         self.skipTest('TODO: Implement')
 
-    def test_get_groups_variables(self):
-        self.skipTest('TODO: Implement (Important)')
-
     def test_compare_slice_maps(self):
         self.skipTest('TODO: Implement')
 
@@ -764,6 +795,7 @@ class TestSliceGenerateSuggestionFuncs(TestSlice):
         self.skipTest('TODO: Implement')
 
     def test_add_suggestions(self):
+        source = self._get_source()
         self.skipTest('TODO: Implement')
 
     def test_get_suggestions(self):
