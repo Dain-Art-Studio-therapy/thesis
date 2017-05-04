@@ -324,17 +324,6 @@ class TestGenerateTokens(unittest.TestCase):
         self.assertEqual(tokens.conditionals[6], set([6, 8]))
         self.assertEqual(tokens.conditionals[8], set([6, 8]))
 
-        # Check error if there is elif/else with no if.
-        source = ('def funcA():\n'                                      # line 1
-                  '    x = int(input("enter test score:"))\n'           # line 2
-                  '    elif x < 85:\n'                                  # line 3
-                  '        print("You have room for improvement.")\n'   # line 4
-                  '    else:\n'                                         # line 5
-                  '        print("Great job!")\n'                       # line 6
-                  '        print("Testing multi-line else")\n')         # line 7
-        with self.assertRaises(RuntimeError) as context:
-            TokenGenerator(source)
-
 
 class TestGenerateCFG(unittest.TestCase):
 

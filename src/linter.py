@@ -9,6 +9,7 @@ import re
 import textwrap
 
 from src.globals import *
+from src.generatecfg import TokenGenerator
 from src.models.error import *
 
 
@@ -37,8 +38,12 @@ class LinterTokenParser(object):
         self.debug = debug
 
     def generate(self, source, line_limit=80):
+        tokens = TokenGenerator(source, include_conditional=False)
+        self.multiline = tokens.multiline
+
         self.suggestions = {}
-        self.lines = source.splitlines(True)
+        self.all_lines = self._get_lines(source)
+        self.lines = self._get_lines_code()
 
         # Gets the suggestions.
         self._check_indentation()
@@ -46,60 +51,150 @@ class LinterTokenParser(object):
         self._check_conditional_true_false()
         return self.suggestions
 
+    # Gets all individual lines of code as tuple of (lineno, line).
+    def _get_lines(self, source):
+        return [(lineno, line)
+                for lineno, line in enumerate(source.splitlines(True), 1)]
+
+    # Gets the lines that are not commented.
+    def _get_lines_code(self):
+        final_lines = []
+        inside_comment_block = False
+        contains_block_comment = False
+
+        for lineno, line in self.all_lines:
+            stripped_line = line.strip()
+
+            # Check if inside comment block.
+            matches = re.findall(r'"""[^"]|\'\'\'[^\']', line)
+            for block_comment in range(len(matches)):
+                inside_comment_block = not inside_comment_block
+                contains_block_comment = True
+
+            # Check if current line is a comment or inside a comment.
+            if (stripped_line and stripped_line[0] != '#' and
+                not inside_comment_block and not contains_block_comment):
+                final_lines.append((lineno, line))
+            contains_block_comment = False
+        return final_lines
+
     # Adds a suggestion.
     def _add_suggestion(self, lineno, message):
         if lineno not in self.suggestions:
             self.suggestions[lineno] = []
-        self.suggestions[lineno].append(message)
-
-    # TODO: Generate on function and program level.
-    #       For function do - "Line <start of function>: function name should..."
-    #       For program do - "Line 0: program indentation is incorrect"
-    # Checks the indentation for a program.
-    def _check_indentation(self):
-        pass
+        if message not in self.suggestions[lineno]:
+            self.suggestions[lineno].append(message)
 
     # Returns the space at the start of the line.
     def _get_space_start(self, line):
         return re.search(r'(\s*)[^\s]*', line).group(1)
 
-    # Checks if line length is greater than specified.
-    def _check_line_length(self, line_limit=80):
-        message = 'Line length over {0} characters.'.format(line_limit)
-        for lineno, line in enumerate(self.lines, 1):
-            if len(line) > line_limit:
-                self._add_suggestion(lineno, message)
+    # Determines whether the line has an indent at the left.
+    def _has_indent(self, line):
+        return line.lstrip() != line
 
-    # Checks if the return statement is a boolean
-    def _check_return_bool(self, line):
+    # Checks if the return statement is a boolean.
+    def _is_return_bool(self, line):
         return bool(re.match(r'return\s+(True|False)$', line.strip()))
 
     # Checks if statement.
-    def _check_if(self, line):
+    def _is_if(self, line):
         return re.search(r'^if |^if\(', line.strip())
 
     # Checks else statement.
-    def _check_else(self, line):
-        return re.search(r'^else\:$', line.strip())
+    def _is_else(self, line):
+        return re.search(r'^else\s*\:$', line.strip())
 
-    # TODO: Make it work with multiline statements.
-    # TODO: Make sure none of these are comments.
+    # Checks if the line is function definition.
+    def _get_function_def(self, line):
+        match_obj = re.search(r'^def\s+([a-zA-Z0-9\_]+)\s*\(', line)
+        if match_obj:
+            return match_obj.group(1)
+        return None
+
+    # Checks the indentation for a program.
+    def _check_indentation(self):
+        indentation = cur_func_indent = None
+        start_func = cur_func = None
+        prev_lineno = cur_func_lineno = None
+
+        for lineno, line in self.lines:
+            # Initialize indentation.
+            cur_indent = self._get_space_start(line)
+            if not indentation and cur_indent:
+                indentation = cur_indent
+                if not (indentation == '   ' or indentation == '    '):
+                    message = 'Indentation should be either 3 or 4 spaces.'
+                    self._add_suggestion(cur_func_lineno, message)
+
+            # Initialize function definitions.
+            func_def = self._get_function_def(line)
+            if func_def:
+                cur_func = func_def
+                cur_func_lineno = lineno
+                cur_func_indent = None
+                start_func = cur_func if not start_func else start_func
+            elif prev_lineno == cur_func_lineno:
+                cur_func_indent = cur_indent
+
+            # Check for matching indentation if inside function.
+            if (indentation and cur_func and lineno != cur_func_lineno):
+                self._check_indentation_line(indentation, line, lineno, prev_lineno,
+                                             start_func, cur_func, cur_func_lineno,
+                                             cur_indent, cur_func_indent)
+
+            # Reset variables for next line.
+            prev_lineno = lineno
+
+    # Gets indentation on a given line.
+    def _check_indentation_line(self, indentation, line, lineno, prev_lineno,
+                                start_func, cur_func, cur_func_lineno,
+                                cur_indent, cur_func_indent):
+        count = len(tuple(re.finditer(indentation, cur_indent)))
+        count_func = len(tuple(re.finditer(cur_func_indent, cur_indent)))
+        has_indent = self._has_indent(line)
+        message = None
+
+        # Checks indentation between functions.
+        if prev_lineno == cur_func_lineno:
+            # Checks tab vs spaces and different number of spaces/tabs.
+            if (has_indent and not count) or indentation != cur_indent:
+                message = ('\'{0}\' has different indentation than '
+                           '\'{1}\'.'.format(cur_func, start_func))
+        # Checks indentation within a function for non-multiline statements.
+        else:
+            count_func_indent = count_func * cur_func_indent
+            if cur_indent != count_func_indent and lineno not in self.multiline:
+                message = ('Indentation within \'{0}\' changes between '
+                           'indentation levels.'.format(cur_func))
+
+        # Adds the suggestion if a suggestion is found.
+        if message:
+            self._add_suggestion(cur_func_lineno, message)
+
+    # Checks if line length is greater than specified.
+    def _check_line_length(self, line_limit=80):
+        message = 'Line length over {0} characters.'.format(line_limit)
+        for lineno, line in self.all_lines:
+            if len(line) > line_limit:
+                self._add_suggestion(lineno, message)
+
     # Checks conditional that is done as a True/False statement
     def _check_conditional_true_false(self):
         message = 'Rewrite conditional as a single line return statement: \'return <conditional>\'.'
         start_lineno = None
         cond_incr = 0
 
-        for lineno, line in enumerate(self.lines, 1):
-            is_bool_return = self._check_return_bool(line)
+        for lineno, line in self.lines:
+            is_bool_return = self._is_return_bool(line)
 
-            if self._check_if(line):
+            if self._is_if(line):
                 start_lineno = lineno
                 cond_incr = 1
             elif cond_incr == 1 and is_bool_return:
                 cond_incr += 1
             elif cond_incr == 2:
-                if self._check_else(line):
+                if self._is_else(line):
                     cond_incr += 1
                 elif is_bool_return:
                     self._add_suggestion(start_lineno, message)
@@ -138,7 +233,8 @@ class Linter(ast.NodeVisitor):
     def _add_suggestion(self, lineno, message):
         if lineno not in self.suggestions:
             self.suggestions[lineno] = []
-        self.suggestions[lineno].append(message)
+        if message not in self.suggestions[lineno]:
+            self.suggestions[lineno].append(message)
 
     # Visits element within node.
     def _visit_item(self, value):
