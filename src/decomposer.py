@@ -8,11 +8,13 @@ from __future__ import print_function
 import argparse
 import ast
 import sys
+import textwrap
 
 from src.models.error import *
 from src.models.slice import Slice
 from src.generatecfg import CFGGenerator
 from src.parser import parse_json
+from src.linter import get_linter_suggestions
 
 
 _LEN_PROGRESS_BAR = 40
@@ -82,10 +84,16 @@ def remove_progress_bar(noprogress):
         sys.stdout.flush()
 
 
+# Adds an indent to the text.
+def indent(text, tab):
+    padding = ' ' * tab
+    return ''.join(padding+line for line in text.splitlines(True))
+
+
+# TODO: Create a suggestions.txt file and output it to the screen
 # Generates suggestions.
 def generate_suggestions():
     total_func_complexity = 0
-    suggestions = []
     progress = 0
 
     # Process arguments.
@@ -100,6 +108,15 @@ def generate_suggestions():
     node = ast.parse(source)
     print_ast(node, args.debug)
 
+    # Generate Linter suggestions.
+    suggestions = get_linter_suggestions(node, source, args.debug)
+    if suggestions:
+        print('Each message below indicates formatting related messages. '
+              'Fixing of the primary suggestions from the decomposer.\n')
+        for lineno, messages in sorted(suggestions.items()):
+            print('\tline {}: {}'.format(lineno, ' '.join(messages)))
+        print('\n')
+
     # Generate CFG.
     generator = CFGGenerator(args.debug)
     cfg = generator.generate(node, source)
@@ -107,6 +124,7 @@ def generate_suggestions():
     progress_bar(args.noprogress, func_num=0, num_funcs=num_funcs)
 
     # Generates suggestions.
+    suggestions = []
     for func_num, func_block in enumerate(cfg.get_funcs()):
         progress_bar(args.noprogress, func_num=func_num + 1, num_funcs=num_funcs)
         func_slice = Slice(func_block, config, args.slow)
@@ -116,18 +134,16 @@ def generate_suggestions():
 
     # Print suggestions.
     if suggestions:
-        # TODO: REMOVE CONDITION AND \t.
-        if not args.noprogress:
-            print('Each message below indicates lines of \'{}\' you may be able to '
-                  'refactor into new function. The parameters and return values '
-                  'provided correspond with the new function. Use your own '
-                  'discretion when determining if the decomposition is fit for '
-                  'you.'.format(args.filename), end=' ')
-            if not args.slow:
-                print('For additional suggestions try using the flag --slow.', end=' ')
-            print("\n")
+        print('Each message below indicates lines of \'{}\' you may be able to '
+              'refactor into new function. The parameters and return values '
+              'provided correspond with the new function. Use your own '
+              'discretion when determining if the decomposition is fit for '
+              'you.'.format(args.filename), end=' ')
+        if not args.slow:
+            print('For additional suggestions try using the flag --slow.', end=' ')
+        print('\n')
         for suggestion in suggestions:
-            print('\t{}'.format(suggestion))
+            print('{}'.format(suggestion))
     else:
         print('No suggestions detected.', end=' ')
         if not args.slow:

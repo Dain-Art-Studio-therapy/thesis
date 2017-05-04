@@ -36,6 +36,7 @@ class TokenGenerator(object):
     include_conditional: bool
         Whether or not not include the conditional in the multiline groups.
     """
+
     def __init__(self, source, include_conditional=True):
         # Generates lines and line types.
         self.lines = source.splitlines(True)
@@ -286,7 +287,7 @@ class CFGGenerator(ast.NodeVisitor):
     #     self.generic_visit(self, node)
 
     # input: FunctionDef(identifier name, arguments args,
-    #                          stmt* body, expr* decorator_list)
+    #                    stmt* body, expr* decorator_list)
     # output: None
     def visit_FunctionDef(self, node):
         prev_block = self.current_block
@@ -350,7 +351,7 @@ class CFGGenerator(ast.NodeVisitor):
         self._add_instruction_info(node.lineno, var='print', action=TypeVariable.LOAD)
         self.generic_visit(node)
 
-    # Visits a loop.
+    # Visits a loop. Returns None.
     def _visit_loop(self, conditional_nodes, conditional_lineno, body):
         start_block = self.current_block
         prev_control = self.current_control
@@ -447,7 +448,7 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_Raise')
     #     self.generic_visit(node)
 
-    # Visits an exception.
+    # Visits an exception. Returns None.
     def _visit_exception(self, lineno, body, handlers):
         prev_control = self.current_control
         start_block = self.current_block
@@ -493,11 +494,13 @@ class CFGGenerator(ast.NodeVisitor):
             self.current_block = after_block
         self.current_control = prev_control
 
-    # TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
+    # input: TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
+    # output: None
     def visit_TryExcept(self, node):
         self._visit_exception(node.lineno, node.body, node.handlers)
 
-    # Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
+    # input: Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
+    # output: None
     def visit_Try(self, node):
         self._visit_exception(node.lineno, node.body, node.handlers)
 

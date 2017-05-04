@@ -28,3 +28,12 @@ class ElseWithoutIfError(DecomposerError):
         self.message = "ElseWithoutIfError: Elif or else without an if on line {}.".format(lineno)
         self.lineno = lineno
         Exception.__init__(self, self.message)
+
+
+# Function inside function error.
+class FuncInsideFuncError(DecomposerError):
+
+    def __init__(self, lineno):
+        self.message = "FuncInsideFuncError: Function inside function on line {}.".format(lineno)
+        self.lineno = lineno
+        Exception.__init__(self, self.message)

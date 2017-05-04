@@ -20,3 +20,7 @@ class Test_DecomposerError(unittest.TestCase):
     def test_else_without_if_error(self):
         error = ElseWithoutIfError(lineno=10)
         self.assertEqual(error.message, "ElseWithoutIfError: Elif or else without an if on line 10.")
+
+    def test_func_inside_func_error(self):
+        error = FuncInsideFuncError(lineno=10)
+        self.assertEqual(error.message, "FuncInsideFuncError: Function inside function on line 10.")
