@@ -325,6 +325,30 @@ class TestGenerateTokens(unittest.TestCase):
         self.assertEqual(tokens.conditionals[8], set([6, 8]))
 
 
+    def test_get_try_except(self):
+        source = ('def funcA():\n'                                      # line 1
+                  '    x = int(input("enter test score:"))\n'           # line 2
+                  '    try:\n'                                          # line 3
+                  '        print("You need to retake the class.")\n'    # line 4
+                  '    except ValueError as e:\n'                       # line 5
+                  '        try :\n'                                     # line 6
+                  '            print("here")\n'                         # line 7
+                  '        except ValueError as e:\n'                   # line 8
+                  '            print("here2")\n'                        # line 9
+                  '    except:\n'                                       # line 10
+                  '        print("Great job!")\n'                       # line 11
+                  '        print("Testing multi-line else")\n')         # line 12
+        tokens = TokenGenerator(source)
+        self.assertEqual(set(tokens.exceptions.keys()), set([3, 5, 6, 8, 10]))
+
+        self.assertEqual(tokens.exceptions[3], set([3, 5, 10]))
+        self.assertEqual(tokens.exceptions[5], set([3, 5, 10]))
+        self.assertEqual(tokens.exceptions[10], set([3, 5, 10]))
+
+        self.assertEqual(tokens.exceptions[6], set([6, 8]))
+        self.assertEqual(tokens.exceptions[8], set([6, 8]))
+
+
 class TestGenerateCFG(unittest.TestCase):
 
     def setUp(self):
@@ -515,11 +539,11 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_loop_single_for(self):
-        source = ('def funcA():\n'
-                  '    favs = ["berry", "apple"]\n'
-                  '    name = "peter"\n'
-                  '    for item in favs:\n'
-                  '        print("%s likes %s" % (name, item))')
+        source = ('def funcA():\n'                                  # line 1
+                  '    favs = ["berry", "apple"]\n'                 # line 2
+                  '    name = "peter"\n'                            # line 3
+                  '    for item in favs:\n'                         # line 4
+                  '        print("%s likes %s" % (name, item))')    # line 5
         cfg = self._generate_cfg(source)
         func_block = cfg.get_func('funcA')
 
@@ -529,7 +553,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
-        self.assertInstrEqual(guard_block.get_instruction(4), referenced=['favs'], defined=['item'])
+        self.assertInstrEqual(guard_block.get_instruction(4), referenced=['favs'], defined=['item'], instruction_type=InstructionType.FOR)
         self.assertBlockPredecessorsEqual(guard_block, ['funcA', 'L3'])
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
@@ -549,13 +573,13 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_loop_nested_for(self):
-        source = ('def funcA():\n'
-                  '    integers = [[1, 2], [3, 4]]\n'
-                  '    for numbers in integers:\n'
-                  '        for integer in numbers:\n'
-                  '            print("%d " %integer)\n'
-                  '        print("argh")\n'
-                  '    print("done")\n')
+        source = ('def funcA():\n'                          # line 1
+                  '    integers = [[1, 2], [3, 4]]\n'       # line 2
+                  '    for numbers in integers:\n'          # line 3
+                  '        for integer in numbers:\n'       # line 4
+                  '            print("%d " %integer)\n'     # line 5
+                  '        print("argh")\n'                 # line 6
+                  '    print("done")\n')                    # line 7
         cfg = self._generate_cfg(source)
         func_block = cfg.get_func('funcA')
 
@@ -565,7 +589,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block_1 = func_block.successors['L2']
-        self.assertInstrEqual(guard_block_1.get_instruction(3), referenced=['integers'], defined=['numbers'])
+        self.assertInstrEqual(guard_block_1.get_instruction(3), referenced=['integers'], defined=['numbers'], instruction_type=InstructionType.FOR)
         self.assertBlockPredecessorsEqual(guard_block_1, ['funcA', 'L7'])
         self.assertBlockSuccessorsEqual(guard_block_1, ['L3', 'L4'])
 
@@ -575,7 +599,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(body_start_1, ['L5'])
 
         guard_block_2 = body_start_1.successors['L5']
-        self.assertInstrEqual(guard_block_2.get_instruction(4), referenced=['numbers'], defined=['integer'], control=3)
+        self.assertInstrEqual(guard_block_2.get_instruction(4), referenced=['numbers'], defined=['integer'], instruction_type=InstructionType.FOR, control=3)
         self.assertBlockPredecessorsEqual(guard_block_2, ['L3', 'L6'])
         self.assertBlockSuccessorsEqual(guard_block_2, ['L6', 'L7'])
 
@@ -600,11 +624,11 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_loop_single_while(self):
-        source = ('def funcA():\n'
-                  '    i = 0\n'
-                  '    while i < 5:\n'
-                  '        i += 1\n'
-                  '    print("done")\n')
+        source = ('def funcA():\n'              # line 1
+                  '    i = 0\n'                 # line 2
+                  '    while i < 5:\n'          # line 3
+                  '        i += 1\n'            # line 4
+                  '    print("done")\n')        # line 5
         cfg = self._generate_cfg(source)
         func_block = cfg.get_func('funcA')
 
@@ -613,7 +637,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
-        self.assertInstrEqual(guard_block.get_instruction(3), referenced=['i'])
+        self.assertInstrEqual(guard_block.get_instruction(3), referenced=['i'], instruction_type=InstructionType.WHILE)
         self.assertBlockPredecessorsEqual(guard_block, ['funcA', 'L3'])
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
@@ -921,7 +945,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
-        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['range'], defined=['i'])
+        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['range'], defined=['i'], instruction_type=InstructionType.FOR)
         self.assertBlockPredecessorsEqual(guard_block, ['funcA'])
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
@@ -955,7 +979,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
-        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['y'])
+        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['y'], instruction_type=InstructionType.WHILE)
         self.assertBlockPredecessorsEqual(guard_block, ['funcA'])
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
@@ -989,7 +1013,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
-        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['y'])
+        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['y'], instruction_type=InstructionType.WHILE)
         self.assertBlockPredecessorsEqual(guard_block, ['funcA', 'L6'])
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
@@ -1059,7 +1083,7 @@ class TestGenerateCFG(unittest.TestCase):
 
     def test_try_except(self):
         source = ('def funcA(y):\n'                 # line 1
-                  '    try:\n'                      # line 2
+                  '    try :\n'                     # line 2
                   '        print(y)\n'              # line 3
                   '    except:\n'                   # line 4
                   '        print(e)\n')             # line 5
@@ -1067,7 +1091,7 @@ class TestGenerateCFG(unittest.TestCase):
         block = cfg.get_func('funcA')
 
         self.assertInstrEqual(block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
-        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY)
+        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY, multiline=[2, 4])
         self.assertBlockPredecessorsEqual(block)
         self.assertBlockSuccessorsEqual(block, ['L2', 'L3'])
 
@@ -1077,7 +1101,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(try_block, ['L4'])
 
         except_block = block.successors['L3']
-        self.assertInstrEqual(except_block.get_instruction(4), instruction_type=InstructionType.EXCEPT, control=2)
+        self.assertInstrEqual(except_block.get_instruction(4), instruction_type=InstructionType.EXCEPT, control=2, multiline=[2, 4])
         self.assertInstrEqual(except_block.get_instruction(5), referenced=['print', 'e'], control=4)
         self.assertBlockPredecessorsEqual(except_block, ['funcA'])
         self.assertBlockSuccessorsEqual(except_block, ['L4'])
@@ -1104,7 +1128,7 @@ class TestGenerateCFG(unittest.TestCase):
         block = cfg.get_func('funcA')
 
         self.assertInstrEqual(block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
-        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY)
+        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY, multiline=[2, 4, 6])
         self.assertBlockPredecessorsEqual(block)
         self.assertBlockSuccessorsEqual(block, ['L2', 'L3', 'L4'])
 
@@ -1114,13 +1138,13 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(try_block, ['L1'])
 
         except_block_1 = block.successors['L3']
-        self.assertInstrEqual(except_block_1.get_instruction(4), referenced=['SyntaxException'], defined=['e'], instruction_type=InstructionType.EXCEPT, control=2)
+        self.assertInstrEqual(except_block_1.get_instruction(4), referenced=['SyntaxException'], defined=['e'], instruction_type=InstructionType.EXCEPT, control=2, multiline=[2, 4, 6])
         self.assertInstrEqual(except_block_1.get_instruction(5), referenced=['str', 'e'], instruction_type=InstructionType.RETURN, control=4)
         self.assertBlockPredecessorsEqual(except_block_1, ['funcA'])
         self.assertBlockSuccessorsEqual(except_block_1, ['L1'])
 
         except_block_2 = block.successors['L4']
-        self.assertInstrEqual(except_block_2.get_instruction(6), referenced=['Exception'], defined=['e'], instruction_type=InstructionType.EXCEPT, control=4)
+        self.assertInstrEqual(except_block_2.get_instruction(6), referenced=['Exception'], defined=['e'], instruction_type=InstructionType.EXCEPT, control=4, multiline=[2, 4, 6])
         self.assertInstrEqual(except_block_2.get_instruction(7), referenced=['str', 'e'], instruction_type=InstructionType.RETURN, control=6)
         self.assertBlockPredecessorsEqual(except_block_2, ['funcA'])
         self.assertBlockSuccessorsEqual(except_block_2, ['L1'])
@@ -1248,6 +1272,53 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertFalse(exit_block.get_instructions())
         self.assertBlockPredecessorsEqual(exit_block, ['print_hi'])
         self.assertBlockSuccessorsEqual(exit_block)
+
+    def test_return_while_if_with_break(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    while True:\n'               # line 2
+                  '        if y < 4:\n'             # line 3
+                  '            break\n'             # line 4
+                  '        y -= 1\n'                # line 5
+                  '    print("DONE")\n')            # line 6
+        cfg = self._generate_cfg(source)
+        func_block = cfg.get_func('funcA')
+        print(func_block)
+        print(source)
+
+        self.assertEqual(func_block.label, 'funcA')
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertBlockSuccessorsEqual(func_block, ['L2'])
+
+        guard_block = func_block.successors['L2']
+        self.assertInstrEqual(guard_block.get_instruction(2), instruction_type=InstructionType.WHILE)
+        self.assertBlockPredecessorsEqual(guard_block, ['funcA', 'L6'])
+        self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
+
+        body_block = guard_block.successors['L3']
+        self.assertInstrEqual(body_block.get_instruction(3), referenced=['y'], control=2)
+        self.assertBlockPredecessorsEqual(body_block, ['L2'])
+        self.assertBlockSuccessorsEqual(body_block, ['L5', 'L6'])
+
+        if_block = body_block.successors['L5']
+        # self.assertInstrEqual(if_block.get_instruction(5), referenced=['y'], instruction_type=InstructionType.RETURN, control=4)
+        self.assertBlockPredecessorsEqual(if_block, ['L3'])
+        self.assertBlockSuccessorsEqual(if_block, ['L6'])
+
+        after_if_block = body_block.successors['L6']
+        self.assertInstrEqual(after_if_block.get_instruction(5), referenced=['y'], defined=['y'], control=2)
+        self.assertBlockPredecessorsEqual(after_if_block, ['L3', 'L5'])
+        self.assertBlockSuccessorsEqual(after_if_block, ['L2'])
+
+        after_block = guard_block.successors['L4']
+        self.assertInstrEqual(after_block.get_instruction(6), referenced=['print'])
+        self.assertBlockPredecessorsEqual(after_block, ['L2'])
+        self.assertBlockSuccessorsEqual(after_block, ['L1'])
+
+        exit_block = after_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L4'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
 
 if __name__ == '__main__':
     unittest.main()

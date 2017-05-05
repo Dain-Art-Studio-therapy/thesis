@@ -48,9 +48,14 @@ class TokenGenerator(object):
         self.line_indent = self._get_line_indentation()
         self.multiline = self._get_multiline_instructions()
         self.conditionals = self._get_conditionals()
+        self.exceptions = self._get_try_except()
 
         if include_conditional:
             for lineno, group in self.conditionals.items():
+                if lineno not in self.multiline:
+                    self.multiline[lineno] = set()
+                self.multiline[lineno] |= group
+            for lineno, group in self.exceptions.items():
                 if lineno not in self.multiline:
                     self.multiline[lineno] = set()
                 self.multiline[lineno] |= group
@@ -168,6 +173,22 @@ class TokenGenerator(object):
                             groups[grouped_lineno] = set(conditionals[line_indentation])
                 elif re.search(r'if |if\(', line):
                     conditionals[line_indentation] = [lineno]
+        return groups
+
+    # Returns the groups of try/except.
+    def _get_try_except(self):
+        groups = {}
+        exceptions = {}
+        for lineno, line in enumerate(self.lines, 1):
+            if lineno not in self.comments:
+                line_indentation = self.line_indent[lineno]
+                if re.search(r'except |except:', line):
+                    if line_indentation in exceptions:
+                        exceptions[line_indentation].append(lineno)
+                        for grouped_lineno in exceptions[line_indentation]:
+                            groups[grouped_lineno] = set(exceptions[line_indentation])
+                elif re.search(r'try |try:', line):
+                    exceptions[line_indentation] = [lineno]
         return groups
 
     # Checks if the character is a quotation that starts or ends a string.
@@ -352,7 +373,7 @@ class CFGGenerator(ast.NodeVisitor):
         self.generic_visit(node)
 
     # Visits a loop. Returns None.
-    def _visit_loop(self, conditional_nodes, conditional_lineno, body):
+    def _visit_loop(self, instr_type, conditional_nodes, conditional_lineno, body):
         start_block = self.current_block
         prev_control = self.current_control
 
@@ -369,6 +390,7 @@ class CFGGenerator(ast.NodeVisitor):
         self.current_block = guard_block
         for node in conditional_nodes:
             self._visit_item(node)
+        self._add_instruction_info(lineno=conditional_lineno, instr_type=instr_type)
         self.current_control = conditional_lineno
 
         # Add body to body block.
@@ -382,12 +404,14 @@ class CFGGenerator(ast.NodeVisitor):
     # input: For(expr target, expr iter, stmt* body, stmt* orelse)
     # output: None
     def visit_For(self, node):
-        self._visit_loop([node.target, node.iter], node.target.lineno, node.body)
+        self._visit_loop(InstructionType.FOR, [node.target, node.iter],
+                         node.target.lineno, node.body)
 
     # input: While(expr test, stmt* body, stmt* orelse)
     # output: None
     def visit_While(self, node):
-        self._visit_loop([node.test], node.test.lineno, node.body)
+        self._visit_loop(InstructionType.WHILE, [node.test],
+                         node.test.lineno, node.body)
 
     # input: If(expr test, stmt* body, stmt* orelse)
     # output: None
