@@ -220,6 +220,8 @@ class CFGGenerator(ast.NodeVisitor):
         self.block_list = BlockList()
         self.func_block = None
         self.current_block = None
+        self.guard_block = None
+        self.after_block = None
         self.exit_block = None
         self.current_control = None
         self.tokens = None
@@ -376,6 +378,8 @@ class CFGGenerator(ast.NodeVisitor):
     def _visit_loop(self, instr_type, conditional_nodes, conditional_lineno, body):
         start_block = self.current_block
         prev_control = self.current_control
+        prev_guard_block = self.guard_block
+        prev_after_block = self.after_block
 
         guard_block = Block()
         start_body_block = Block()
@@ -395,7 +399,13 @@ class CFGGenerator(ast.NodeVisitor):
 
         # Add body to body block.
         self.current_block = start_body_block
+        self.guard_block = guard_block
+        self.after_block = after_block
+
         self._visit_item(body)
+
+        self.guard_block = prev_guard_block
+        self.after_block = prev_after_block
         self._add_successor(self.current_block, guard_block)
 
         self.current_control = prev_control
@@ -569,19 +579,21 @@ class CFGGenerator(ast.NodeVisitor):
         self._add_instruction_info(node.lineno, instr_type=InstructionType.PASS)
         self.generic_visit(node)
 
-    # TODO: FINISH IMPLEMENTING.
     # input: Break()
     # output: None
     def visit_Break(self, node):
         self._add_instruction_info(node.lineno, instr_type=InstructionType.BREAK)
+        self._add_successor(self.current_block, self.after_block)
         self.generic_visit(node)
+        self.current_block = None
 
-    # TODO: FINISH IMPLEMENTING.
     # input: Continue()
     # output: None
     def visit_Continue(self, node):
         self._add_instruction_info(node.lineno, instr_type=InstructionType.CONTINUE)
+        self._add_successor(self.current_block, self.guard_block)
         self.generic_visit(node)
+        self.current_block = None
 
     # # BoolOp(boolop op, expr* values)
     # def visit_BoolOp(self, node):
