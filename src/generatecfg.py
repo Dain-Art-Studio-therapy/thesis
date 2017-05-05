@@ -569,15 +569,19 @@ class CFGGenerator(ast.NodeVisitor):
         self._add_instruction_info(node.lineno, instr_type=InstructionType.PASS)
         self.generic_visit(node)
 
-    # # ???
-    # def visit_Break(self, node):
-    #     print('visit_Break')
-    #     self.generic_visit(node)
+    # TODO: FINISH IMPLEMENTING.
+    # input: Break()
+    # output: None
+    def visit_Break(self, node):
+        self._add_instruction_info(node.lineno, instr_type=InstructionType.BREAK)
+        self.generic_visit(node)
 
-    # # ???
-    # def visit_Continue(self, node):
-    #     print('visit_Continue')
-    #     self.generic_visit(node)
+    # TODO: FINISH IMPLEMENTING.
+    # input: Continue()
+    # output: None
+    def visit_Continue(self, node):
+        self._add_instruction_info(node.lineno, instr_type=InstructionType.CONTINUE)
+        self.generic_visit(node)
 
     # # BoolOp(boolop op, expr* values)
     # def visit_BoolOp(self, node):
@@ -689,6 +693,13 @@ class CFGGenerator(ast.NodeVisitor):
         action = self._visit_item(node.ctx)
         self._add_instruction_info(node.lineno, var=node.id, action=action)
         return node.id
+
+    # input: NameConstant(identifier value)
+    # output: var_name str
+    def visit_NameConstant(self, node):
+        var = str(node.value)
+        self._add_instruction_info(node.lineno, var=var, action=TypeVariable.LOAD)
+        return var
 
     # input: arg(identifier arg, expr? annotation)
     # output: None

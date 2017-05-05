@@ -1313,7 +1313,6 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_return_while_if_with_break(self):
-        self.skipTest('TODO: Implement')
         source = ('def funcA(y):\n'                 # line 1
                   '    while True:\n'               # line 2
                   '        if y < 4:\n'             # line 3
@@ -1328,7 +1327,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(func_block, ['L2'])
 
         guard_block = func_block.successors['L2']
-        self.assertInstrEqual(guard_block.get_instruction(2), instruction_type=InstructionType.WHILE)
+        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['True'], instruction_type=InstructionType.WHILE)
         self.assertBlockPredecessorsEqual(guard_block, ['funcA', 'L6'])
         self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
 
@@ -1338,7 +1337,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(body_block, ['L5', 'L6'])
 
         if_block = body_block.successors['L5']
-        # self.assertInstrEqual(if_block.get_instruction(5), referenced=['y'], instruction_type=InstructionType.RETURN, control=4)
+        self.assertInstrEqual(if_block.get_instruction(4), instruction_type=InstructionType.BREAK, control=3)
         self.assertBlockPredecessorsEqual(if_block, ['L3'])
         self.assertBlockSuccessorsEqual(if_block, ['L6'])
 
@@ -1349,6 +1348,52 @@ class TestGenerateCFG(unittest.TestCase):
 
         after_block = guard_block.successors['L4']
         self.assertInstrEqual(after_block.get_instruction(6), referenced=['print'])
+        self.assertBlockPredecessorsEqual(after_block, ['L2'])
+        self.assertBlockSuccessorsEqual(after_block, ['L1'])
+
+        exit_block = after_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L4'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
+    def test_return_while_if_with_continue(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    while y > 5:\n'              # line 2
+                  '        y -= 1\n'                # line 3
+                  '        if y < 4:\n'             # line 4
+                  '            continue\n'          # line 5
+                  '        print("inside")\n'       # line 6
+                  '    print("DONE")\n')            # line 7
+        cfg = self._generate_cfg(source)
+        func_block = cfg.get_func('funcA')
+
+        self.assertEqual(func_block.label, 'funcA')
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertBlockSuccessorsEqual(func_block, ['L2'])
+
+        guard_block = func_block.successors['L2']
+        self.assertInstrEqual(guard_block.get_instruction(2), referenced=['y'], instruction_type=InstructionType.WHILE)
+        self.assertBlockPredecessorsEqual(guard_block, ['funcA', 'L6'])
+        self.assertBlockSuccessorsEqual(guard_block, ['L3', 'L4'])
+
+        body_block = guard_block.successors['L3']
+        self.assertInstrEqual(body_block.get_instruction(3), referenced=['y'], defined=['y'], control=2)
+        self.assertInstrEqual(body_block.get_instruction(4), referenced=['y'], control=2)
+        self.assertBlockPredecessorsEqual(body_block, ['L2'])
+        self.assertBlockSuccessorsEqual(body_block, ['L5', 'L6'])
+
+        if_block = body_block.successors['L5']
+        self.assertInstrEqual(if_block.get_instruction(5), instruction_type=InstructionType.CONTINUE, control=4)
+        self.assertBlockPredecessorsEqual(if_block, ['L3'])
+        self.assertBlockSuccessorsEqual(if_block, ['L6'])
+
+        after_if_block = body_block.successors['L6']
+        self.assertInstrEqual(after_if_block.get_instruction(6), referenced=['print'], control=2)
+        self.assertBlockPredecessorsEqual(after_if_block, ['L3', 'L5'])
+        self.assertBlockSuccessorsEqual(after_if_block, ['L2'])
+
+        after_block = guard_block.successors['L4']
+        self.assertInstrEqual(after_block.get_instruction(7), referenced=['print'])
         self.assertBlockPredecessorsEqual(after_block, ['L2'])
         self.assertBlockSuccessorsEqual(after_block, ['L1'])
 
