@@ -267,7 +267,8 @@ class CFGGenerator(ast.NodeVisitor):
     def visit_Module(self, node):
         if 'body' in vars(node):
             for child_node in vars(node)['body']:
-                if isinstance(child_node, _ast.FunctionDef):
+                if (isinstance(child_node, _ast.FunctionDef) or
+                    isinstance(child_node, _ast.ClassDef)):
                     self._visit_item(child_node)
 
     # # Interactive(stmt* body)
@@ -442,10 +443,13 @@ class CFGGenerator(ast.NodeVisitor):
     #     print('visit_With')
     #     self.generic_visit(node)
 
-    # # Raise(expr? type, expr? inst, expr? tback)
-    # def visit_Raise(self, node):
-    #     print('visit_Raise')
-    #     self.generic_visit(node)
+    # input: Raise(expr? type, expr? inst, expr? tback)
+    # output: None
+    def visit_Raise(self, node):
+        self._add_instruction_info(node.lineno, instr_type=InstructionType.RAISE)
+        self._add_successor(self.current_block, self.exit_block)
+        self.generic_visit(node)
+        self.current_block = None
 
     # Visits an exception. Returns None.
     def _visit_exception(self, lineno, body, handlers):

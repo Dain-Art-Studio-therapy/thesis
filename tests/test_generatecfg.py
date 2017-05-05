@@ -860,7 +860,52 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_return_if_elif(self):
-        self.skipTest('TODO: Implement (Important)')
+        source = ('def funcA(y, z):\n'              # line 1
+                  '    x = 5\n'                     # line 2
+                  '    if y < 4:\n'                 # line 3
+                  '        return y\n'              # line 4
+                  '    elif z < 4:\n'               # line 5
+                  '        return z\n'              # line 6
+                  '    return "BAD"\n')             # line 7
+        cfg = self._generate_cfg(source)
+        func_block = cfg.get_func('funcA')
+
+        self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y', 'z'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['y'], multiline=[3, 5])
+        self.assertBlockPredecessorsEqual(func_block)
+        self.assertBlockSuccessorsEqual(func_block, ['L2', 'L3'])
+
+        if_block = func_block.successors['L2']
+        self.assertInstrEqual(if_block.get_instruction(4), referenced=['y'], instruction_type=InstructionType.RETURN, control=3)
+        self.assertBlockPredecessorsEqual(if_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(if_block, ['L1'])
+
+        else_cond_block = func_block.successors['L3']
+        self.assertInstrEqual(else_cond_block.get_instruction(5), referenced=['z'], control=3, multiline=[3, 5])
+        self.assertBlockPredecessorsEqual(else_cond_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(else_cond_block, ['L4', 'L5'])
+
+        elif_block = else_cond_block.successors['L4']
+        self.assertInstrEqual(elif_block.get_instruction(6), referenced=['z'], instruction_type=InstructionType.RETURN, control=5)
+        self.assertBlockPredecessorsEqual(elif_block, ['L3'])
+        self.assertBlockSuccessorsEqual(elif_block, ['L1'])
+
+        else_block = else_cond_block.successors['L5']
+        self.assertFalse(else_block.get_instructions())
+        self.assertBlockPredecessorsEqual(else_block, ['L3'])
+        self.assertBlockSuccessorsEqual(else_block, ['L6'])
+
+        after_block = else_block.successors['L6']
+        self.assertInstrEqual(after_block.get_instruction(7), instruction_type=InstructionType.RETURN)
+        self.assertBlockPredecessorsEqual(after_block, ['L5'])
+        self.assertBlockSuccessorsEqual(after_block, ['L1'])
+
+        exit_block = after_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L2', 'L4', 'L6'])
+        self.assertBlockSuccessorsEqual(exit_block)
 
     def test_return_for_with_return(self):
         source = ('def funcA(y):\n'                 # line 1
@@ -1151,6 +1196,58 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockPredecessorsEqual(exit_block, ['L4'])
         self.assertBlockSuccessorsEqual(exit_block)
 
+    def test_raise_error(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    x = 5\n'                     # line 2
+                  '    raise ValueError()\n'        # line 3
+                  '    print(x)\n')                 # line 4
+        cfg = self._generate_cfg(source)
+        func_block = cfg.get_func('funcA')
+
+        self.assertEqual(func_block.get_instruction_linenos(), set([1, 2, 3]))
+        self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(func_block.get_instruction(2), defined=['x'])
+        self.assertInstrEqual(func_block.get_instruction(3), referenced=['ValueError'], instruction_type=InstructionType.RAISE)
+        self.assertBlockPredecessorsEqual(func_block)
+        self.assertBlockSuccessorsEqual(func_block, ['L1'])
+
+        exit_block = func_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
+    def test_class(self):
+        source = ('class Test(object):\n'           # line 1
+                  '    def __init__(self):\n'       # line 2
+                  '        pass\n'                  # line 3
+                  '    def print_hi(self):\n'       # line 4
+                  '        print("hi")\n')          # line 5
+        cfg = self._generate_cfg(source)
+        self.assertEqual(cfg.get_num_funcs(), 2)
+
+        func_block = cfg.get_func('__init__')
+        self.assertEqual(func_block.get_instruction_linenos(), set([2, 3]))
+        self.assertInstrEqual(func_block.get_instruction(2), defined=['self'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(func_block.get_instruction(3), instruction_type=InstructionType.PASS)
+        self.assertBlockPredecessorsEqual(func_block)
+        self.assertBlockSuccessorsEqual(func_block, ['L1'])
+
+        exit_block = func_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['__init__'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
+        func_block = cfg.get_func('print_hi')
+        self.assertEqual(func_block.get_instruction_linenos(), set([4, 5]))
+        self.assertInstrEqual(func_block.get_instruction(4), defined=['self'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(func_block.get_instruction(5), referenced=['print'])
+        self.assertBlockPredecessorsEqual(func_block)
+        self.assertBlockSuccessorsEqual(func_block, ['L2'])
+
+        exit_block = func_block.successors['L2']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['print_hi'])
+        self.assertBlockSuccessorsEqual(exit_block)
 
 if __name__ == '__main__':
     unittest.main()
