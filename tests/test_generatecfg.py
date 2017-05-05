@@ -335,7 +335,7 @@ class TestGenerateTokens(unittest.TestCase):
                   '            print("here")\n'                         # line 7
                   '        except ValueError as e:\n'                   # line 8
                   '            print("here2")\n'                        # line 9
-                  '    except:\n'                                       # line 10
+                  '    finally:\n'                                      # line 10
                   '        print("Great job!")\n'                       # line 11
                   '        print("Testing multi-line else")\n')         # line 12
         tokens = TokenGenerator(source)
@@ -1116,6 +1116,45 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockPredecessorsEqual(exit_block, ['L4'])
         self.assertBlockSuccessorsEqual(exit_block)
 
+    def test_try_except_finally(self):
+        source = ('def funcA(y):\n'                 # line 1
+                  '    try :\n'                     # line 2
+                  '        print(y)\n'              # line 3
+                  '    except:\n'                   # line 4
+                  '        print(e)\n'              # line 5
+                  '    # comment\n'                 # line 6
+                  '    finally:\n'                  # line 7
+                  '        print("here")\n')        # line 8
+        cfg = self._generate_cfg(source)
+        block = cfg.get_func('funcA')
+
+        self.assertInstrEqual(block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)
+        self.assertInstrEqual(block.get_instruction(2), instruction_type=InstructionType.TRY, multiline=[2, 4, 7])
+        self.assertBlockPredecessorsEqual(block)
+        self.assertBlockSuccessorsEqual(block, ['L2', 'L3'])
+
+        try_block = block.successors['L2']
+        self.assertInstrEqual(try_block.get_instruction(3), referenced=['print', 'y'], control=2)
+        self.assertBlockPredecessorsEqual(try_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(try_block, ['L4'])
+
+        except_block = block.successors['L3']
+        self.assertInstrEqual(except_block.get_instruction(4), instruction_type=InstructionType.EXCEPT, control=2, multiline=[2, 4, 7])
+        self.assertInstrEqual(except_block.get_instruction(5), referenced=['print', 'e'], control=4)
+        self.assertBlockPredecessorsEqual(except_block, ['funcA'])
+        self.assertBlockSuccessorsEqual(except_block, ['L4'])
+
+        after_block = try_block.successors['L4']
+        self.assertInstrEqual(after_block.get_instruction(7), instruction_type=InstructionType.FINALLY, multiline=[2, 4, 7])
+        self.assertInstrEqual(after_block.get_instruction(8), referenced=['print'])
+        self.assertBlockPredecessorsEqual(after_block, ['L2', 'L3'])
+        self.assertBlockSuccessorsEqual(after_block, ['L1'])
+
+        exit_block = after_block.successors['L1']
+        self.assertFalse(exit_block.get_instructions())
+        self.assertBlockPredecessorsEqual(exit_block, ['L4'])
+        self.assertBlockSuccessorsEqual(exit_block)
+
     def test_try_except_as_e(self):
         source = ('def funcA(y):\n'                       # line 1
                   '    try:\n'                            # line 2
@@ -1274,6 +1313,7 @@ class TestGenerateCFG(unittest.TestCase):
         self.assertBlockSuccessorsEqual(exit_block)
 
     def test_return_while_if_with_break(self):
+        self.skipTest('TODO: Implement')
         source = ('def funcA(y):\n'                 # line 1
                   '    while True:\n'               # line 2
                   '        if y < 4:\n'             # line 3
@@ -1282,8 +1322,6 @@ class TestGenerateCFG(unittest.TestCase):
                   '    print("DONE")\n')            # line 6
         cfg = self._generate_cfg(source)
         func_block = cfg.get_func('funcA')
-        print(func_block)
-        print(source)
 
         self.assertEqual(func_block.label, 'funcA')
         self.assertInstrEqual(func_block.get_instruction(1), defined=['y'], instruction_type=InstructionType.FUNCTION_HEADER)

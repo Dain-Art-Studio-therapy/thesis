@@ -182,7 +182,7 @@ class TokenGenerator(object):
         for lineno, line in enumerate(self.lines, 1):
             if lineno not in self.comments:
                 line_indentation = self.line_indent[lineno]
-                if re.search(r'except |except:', line):
+                if re.search(r'except |except:|finally:|finally ', line):
                     if line_indentation in exceptions:
                         exceptions[line_indentation].append(lineno)
                         for grouped_lineno in exceptions[line_indentation]:
@@ -521,6 +521,16 @@ class CFGGenerator(ast.NodeVisitor):
             self.current_block = after_block
         self.current_control = prev_control
 
+    # Visits finalbody (finally of try/except).
+    def _visit_finally(self, finalbody):
+        if finalbody:
+            lineno = finalbody[0].lineno - 1
+            while (lineno in self.tokens.comments or
+                   lineno in self.tokens.blank_lines):
+                lineno -= 1
+            self._add_instruction_info(lineno, instr_type=InstructionType.FINALLY)
+            self._visit_item(finalbody)
+
     # input: TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
     # output: None
     def visit_TryExcept(self, node):
@@ -530,11 +540,13 @@ class CFGGenerator(ast.NodeVisitor):
     # output: None
     def visit_Try(self, node):
         self._visit_exception(node.lineno, node.body, node.handlers)
+        self._visit_finally(node.finalbody)
 
-    # # TryFinally(stmt* body, stmt* finalbody)
-    # def visit_TryFinally(self, node):
-    #     print('visit_TryFinally')
-    #     self.generic_visit(node)
+    # input: TryFinally(stmt* body, stmt* finalbody)
+    # output: None
+    def visit_TryFinally(self, node):
+        self._visit_item(node.body)
+        self._visit_finally(node.finalbody)
 
     # # Exec(expr body, expr? globals, expr? locals)
     # def visit_Exec(self, node):
