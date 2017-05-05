@@ -228,6 +228,7 @@ class Linter(ast.NodeVisitor):
     def _init_variables(self):
         self.suggestions = {}
         self.func_name = None
+        self.func_lineno = None
 
     # Adds suggestions.
     def _add_suggestion(self, lineno, message):
@@ -236,29 +237,22 @@ class Linter(ast.NodeVisitor):
         if message not in self.suggestions[lineno]:
             self.suggestions[lineno].append(message)
 
-    # Visits element within node.
-    def _visit_item(self, value):
-        if isinstance(value, list):
-            items = []
-            for item in value:
-                if isinstance(item, ast.AST):
-                    result = self.visit(item)
-                    if isinstance(result, list):
-                        items.extend(result)
-                    elif result:
-                        items.append(result)
-            return items
-        elif isinstance(value, ast.AST):
-            return self.visit(value)
-
     # input: FunctionDef(identifier name, arguments args,
     #                    stmt* body, expr* decorator_list)
     # output: None
     def visit_FunctionDef(self, node):
         if self.func_name:
             raise FuncInsideFuncError(node.lineno)
+
+        # Start of function.
         self.func_name = node.name
+        self.func_lineno = node.lineno
+
+        # Visit function.
         self.generic_visit(node)
+
+        # End of function.
+        self.func_lineno = None
         self.func_name = None
 
     # Visits a orelse condition.
@@ -286,3 +280,23 @@ class Linter(ast.NodeVisitor):
     # output: None
     def visit_Try(self, node):
         self._visit_orelse(node.orelse, 'Do not use else with exceptions.')
+
+    # Handles suggestions based on bad identifier names.
+    def _handle_identifier(self, identifier):
+        # Create suggestion if the identifier is made up of single character.
+        has_repeated_letters = len(set(list(identifier))) > 1
+        if self.func_name and not has_repeated_letters:
+            message = ('Use descriptive variable name instead of \'{0}\' in '
+                       '\'{1}\'.'.format(identifier, self.func_name))
+            self._add_suggestion(self.func_lineno, message)
+
+    # input: Name(identifier id, expr_context ctx)
+    # output: var_name str
+    def visit_Name(self, node):
+        self._handle_identifier(node.id)
+
+    # input: arg(identifier arg, expr? annotation)
+    # output: None
+    def visit_arg(self, node):
+        # Compatible with Python 3 arguments.
+        self._handle_identifier(node.arg)

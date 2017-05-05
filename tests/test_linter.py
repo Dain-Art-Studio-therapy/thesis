@@ -391,3 +391,42 @@ class TestLinter(unittest.TestCase):
                   '    return 0\n')         # line 7
         suggestions = self._generate_suggestions(source)
         self.assertFalse(suggestions)
+
+    def test_variable_names__inside_func(self):
+        source = ('def funcA(num):\n'       # line 1
+                  '    x = 5\n'             # line 2
+                  '    if x > 5:\n'         # line 3
+                  '        x = 0\n'         # line 4
+                  '    return x\n')         # line 5
+        suggestions = self._generate_suggestions(source)
+
+        self.assertEqual(set(suggestions.keys()), set([1]))
+        message = 'Use descriptive variable name instead of \'x\' in \'funcA\'.'
+        self.assertEqual(len(suggestions[1]), 1)
+        self.assertEqual(suggestions[1][0], message)
+
+    def test_variable_names__func_header(self):
+        source = ('def funcA(x):\n'         # line 1
+                  '    num = 5\n'           # line 2
+                  '    if num > 5:\n'       # line 3
+                  '        num = 0\n'       # line 4
+                  '    return num\n')       # line 5
+        suggestions = self._generate_suggestions(source)
+
+        self.assertEqual(set(suggestions.keys()), set([1]))
+        message = 'Use descriptive variable name instead of \'x\' in \'funcA\'.'
+        self.assertEqual(len(suggestions[1]), 1)
+        self.assertEqual(suggestions[1][0], message)
+
+    def test_variable_names__func_header(self):
+        source = ('def funcA(XXX):\n'       # line 1
+                  '    num = 5\n'           # line 2
+                  '    if num > 5:\n'       # line 3
+                  '        return True\n'   # line 4
+                  '    return None\n')      # line 5
+        suggestions = self._generate_suggestions(source)
+
+        self.assertEqual(set(suggestions.keys()), set([1]))
+        message = 'Use descriptive variable name instead of \'XXX\' in \'funcA\'.'
+        self.assertEqual(len(suggestions[1]), 1)
+        self.assertEqual(suggestions[1][0], message)
