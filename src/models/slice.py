@@ -25,6 +25,20 @@ class SuggestionType(Enum):
     DIFF_REF_LIVAR_BLOCK = 3
     DIFF_REF_LIVAR_INSTR = 4
 
+    def __str__(self):
+        if self == SuggestionType.REMOVE_VAR:
+            return ('Removing these instructions decreases control flow paths '
+                    'in this function - making the code more readable '
+                    'and testable.')
+        elif self == SuggestionType.SIMILAR_REF:
+            return ('The same set of variables are referenced in all '
+                    'instructions in the given line numbers.')
+        elif (self == SuggestionType.DIFF_REF_LIVAR_BLOCK or
+              self == SuggestionType.DIFF_REF_LIVAR_INSTR):
+            return ('Multiple variables defined prior to these instructions '
+                    'are not used in these line numbers.')
+        else:
+            raise TypeError(self)
 
 
 class Suggestion(object):
@@ -64,7 +78,8 @@ class Suggestion(object):
             message += '\treturns: {}\n'.format(', '.join(self.ret_vars))
 
         # Add suggestion types to message.
-        names = [suggestion_type.name.lower() for suggestion_type in self.types]
+        # names = [suggestion_type.name.lower() for suggestion_type in self.types]
+        names = ' '.join([str(suggestion_type) for suggestion_type in self.types])
         message += '\treason: {}\n'.format(names)
 
         return message
