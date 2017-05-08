@@ -99,7 +99,7 @@ def generate_suggestions():
     # Process arguments.
     args = process_args()
     source = readfile(args.filename)
-    print('\n\nRunning file... {}\n'.format(args.filename))
+#    print('\n\nRunning file... {}\n'.format(args.filename))
 
     # Parse JSON file.
     config = parse_json(args.config)
@@ -151,7 +151,7 @@ def generate_suggestions():
         else:
             print('{}'.format(' ' * _LEN_PROGRESS_BAR))
 
-    print('Line number complexity: {0:.2f}\n\n'.format(total_func_complexity))
+#    print('Line number complexity: {0:.2f}\n\n'.format(total_func_complexity))
 
 
 def main():
