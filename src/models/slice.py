@@ -27,9 +27,9 @@ class SuggestionType(Enum):
 
     def __str__(self):
         if self == SuggestionType.REMOVE_VAR:
-            return ('Removing these instructions decreases control flow paths '
-                    'in this function - making the code more readable '
-                    'and testable.')
+            return ('Removing these instructions decreases number of paths of '
+                    'execution in this function - making the code more '
+                    'readable and testable.')
         elif self == SuggestionType.SIMILAR_REF:
             return ('The same set of variables are referenced in all '
                     'instructions in the given line numbers.')
