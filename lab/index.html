@@ -1,0 +1,219 @@
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Lab 6, CPE 101</title>
+<link rel="stylesheet" href="http://users.csc.calpoly.edu/~ngarg/101/css/lab.css" type="text/css">
+</head>
+
+<body>
+<div class="container">
+<div class="boxed">
+
+<div class="header"><h1>Lab 6, CPE 101</h1></div>
+
+<p>
+This lab is an exercise on code decomposition. The primary aim of this exercise
+is to better understand the value of code decomposition.
+</p>
+
+<p>
+<b>Code decomposition</b> (also known as functional decomposition) is the
+process of breaking a larger problem into smaller subproblems. In other words,
+functional decomposition is the process of making each function do one thing.
+</p>
+
+<p>
+Download <code><a href="lab6.zip">lab6.zip</a></code>, place it in your
+<code>cpe101</code> directory, and unzip the file.
+</p>
+
+<p>
+Alternatively, you may download <code>lab6.zip</code> by running the following
+command (on the unix servers and from the directory where you would like to
+copy the file):
+</p>
+
+<p>
+<code>cp ~ngarg/www/101/labs/lab6/lab6.zip <strong>.</strong></code>
+</p>
+
+
+<div class="header"> <h2>Starting Survey</h2> </div>
+
+<p>
+Fill out this <a href="https://goo.gl/forms/TsHder3u3GQlU16j1">Google
+    Survey</a> to help me understand how you feel about code decomposition.
+</p>
+
+
+<div class="header"> <h2>Playing with Decomposition</h2> </div>
+
+<p>
+Spend until 10:45am working through the following exercises.
+</p>
+
+
+<div class="header"><h3>Background</h3></div>
+
+<p>
+Although code decomposition should ideally happen prior to writing any code, it
+often times does not. We often end up with longer functions that do multiple
+things.  It is important to learn how to break them down after the fact, so
+that we end up with functions that each do one thing.
+</p>
+
+<p>
+This lab has you examine the decomposition of two games - 2048 and Minesweeper
+- using a static analysis tool.  A static analysis tool provides feedback on
+code without needing the code to work. A user can pass non-functional code into
+the tool and still have it give feedback. In this case, the tool provides
+suggestions on the lines of code to create new functions with.
+</p>
+
+<p>
+Some of the suggestions might overlap and others might be unncessary. Use your
+best judgement when you are implementing the suggestions.
+</p>
+
+
+<div class="header"><h3>Running the Tool</h3></div>
+
+<p>
+The <code>lab6</code> folder contains two games that you can run this tool
+on - <code>Minesweeper</code> and <code>2048</code>. Pick one and start.
+</p>
+
+<p>
+To run the tool type the following command replacing <code>FILENAME</code> with
+the file you would like to run the tool on:
+</p>
+
+<p>
+<code>~ngarg/thesis/decomposer.sh FILENAME --slow</code>
+</p>
+
+<h4 class="header"><code>Minesweeper</code></h4>
+
+<p>
+If you picked Minesweeper. Open <code>minesweeper.py</code> and go to the
+bottom of the code where <code>playgame</code> function is located. Take 2
+minutes to try and understand what it does.
+</p>
+
+<p>
+After two minutes, run the tool using the following command from the
+<code>minesweeper</code> directory:
+</p>
+
+<p>
+<code>~ngarg/thesis/decomposer.sh minesweeper.py --slow</code>
+</p>
+
+
+<h4 class="header"><code>2048</code></h4>
+
+<p>
+Run the tool using the following command from the <code>lab6</code> directory:
+</p>
+
+<p>
+<code>~ngarg/thesis/decomposer.sh 2048.py --slow</code>
+</p>
+
+
+
+<div class="header"><h3>Next Steps</h3></div>
+
+<p>
+The tool should output a list of suggestions. Read through each suggestion and
+try to implement it in the code. As previously mentioned, exercise your own
+judgement as you are making each change.
+</p>
+
+<p>
+Follow the instructions in the section <b>Examining the Suggestions</b>.
+</p>
+
+<p>
+<b>For the remainder of this lab, I suggest opening two Terminal windows - one
+with the code and the other where you run the tool.</b>
+</p>
+
+<div class="header"><h3>Examining the Suggestions</h3></div>
+
+<p>
+After running the command you should now see output to your screen. Follow
+these steps:
+</p>
+
+<ol>
+    <li>
+        Look at the suggestions until you find a suggestion that you agree
+        with.  As you look at each suggestion you will likely have to look back
+        at the code to understand what code the suggestion is encouraging you to
+        move into another function. Find one that you believe will make the
+        code simpler.
+    </li>
+    <li>
+        Now time to change the code. Move the lines of code in the suggestion
+        to a new function.  For now name this function <code>new_func</code>.
+        We will change this in the next step.  Make sure you are calling this
+        function in place of the previous lines of code.
+    </li>
+    <li>
+        Once you have moved the code out of the current function into a
+        separate function, try and understand what the new function is doing.
+        Make a comment above the function header describing what the function
+        does. Then determine a function name that best encompases that
+        description. Lastly, make sure to change this name in both the function
+        header and where you are calling it.
+    </li>
+    <li>
+        Make sure the code still compiles by running <code>python3
+            minesweeper.py</code>. Although it is not necessary the code
+        compiles, it is always good to make sure you aren't breaking any
+        functionality. In a more realistic scenario, this might be where your
+        tests come in handy. After making a chance in your code, you can run
+        your test suite to ensure that your functions are still passing the
+        test cases you wrote.
+    </li>
+    <li>
+        Repeat step 1 through 4 until you feel there are no useful suggestions
+        available.
+    </li>
+</ol>
+
+<p>
+After you are done editing the code, look back at <code>minesweeper.py</code>,
+and particularly <code>playgame</code> and see if you better understand what it
+is doing.
+</p>
+
+<p>
+If there is time left, go back and do this exercise on the other game.
+</p>
+
+
+<div class="header"> <h2>Ending Survey</h2> </div>
+
+<p>
+Fill out this <a href="https://goo.gl/forms/tVNpD5RMZcK2yB2k2">Google
+    Survey</a> to help me better understand your experience with this tool.
+</p>
+
+
+<div class="header"> <h2>Credits</h2> </div>
+
+<p>
+The code for Minesweeper was adapted from <a
+     href="https://gist.github.com/mohd-akram/3057736#file-minesweeper-py-L7">mohd-akram</a>.
+ The code for 2048 was adapted from <a
+     href="https://github.com/yangshun/2048-python/blob/master/logic.py">yangshun</a>.
+</p>
+
+</div>
+</div>
+</body>
+</html>
